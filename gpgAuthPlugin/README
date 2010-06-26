@@ -1,0 +1,18 @@
+This is a firebreath NPAPI plugin project - to compile the plugin, download firebreath, extract, and link this directory to
+/path/to/firebreath/projects/gpgAuthPlugin
+
+then cd to /path/to/firebreath/ and run `makeprep.sh`
+
+then cd to /path/to/firebreath/build
+
+and type `make`
+
+Library dependencies:
+    libgpgme11-dev
+
+To compile only the gpgAuth library, cd to /path/to/firebreath/projects/gpgAuthPlugin and execute
+
+`g++ -lgpgme -lgpg-error gpgauth.cpp -o gpgauth`
+
+then execute ./gpgauth
+

@@ -1,0 +1,585 @@
+GpgME Version:	1.1.8
+keys = {
+	'0DF9C95C3BE1A023': {
+		'fingerprint': 'DAE1FF03FBFC8A020374939F0DF9C95C3BE1A023',
+		'name': 'Kyle L. Huff',
+		'email': '',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '1',
+		'is_qualified': '0',
+		'uids': {
+			'Kyle L. Huff': {
+				'email': '',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'ultimate'
+			},
+			'kylehuff': {
+				'email': '',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'ultimate'
+			},
+		}
+	},
+	'578FF304E32C8E88': {
+		'fingerprint': '5AFDBD4350A6A52DAF284D20578FF304E32C8E88',
+		'name': 'mavenskey',
+		'email': '',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '1',
+		'is_qualified': '0',
+		'uids': {
+			'mavenskey': {
+				'email': '',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'A420F5C4369B896B': {
+		'fingerprint': '96C618F622D3F8070B7A345AA420F5C4369B896B',
+		'name': 'testkey123',
+		'email': 'testkey123@gpgauth.com',
+		'expired': '1',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'testkey123': {
+				'email': 'testkey123@gpgauth.com',
+				'comment': 'nocomment',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'934DA17C3944B426': {
+		'fingerprint': 'F7388F5CAF9FEFBC1D35DFF3934DA17C3944B426',
+		'name': 'gpgauth.org',
+		'email': '',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'gpgauth.org': {
+				'email': '',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'www.curetheitch.com': {
+				'email': 'gpgauth@curetheitch.com',
+				'comment': 'GPG Key used for GPG Authentication',
+				'revoked': '0',
+				'validity': 'full'
+			},
+			'www.gpgauth.com': {
+				'email': 'gpgauth@curetheitch.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'full'
+			},
+			'login.curetheitch.com': {
+				'email': '',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'full'
+			},
+			'curetheitch.com': {
+				'email': '',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'full'
+			},
+			'gpgauth.com': {
+				'email': 'gpgauth@curetheitch.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'full'
+			},
+			'www.gpgauth.org': {
+				'email': '',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'cti.localhost': {
+				'email': '',
+				'comment': 'Local development UID',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'cti.slaveduo': {
+				'email': '',
+				'comment': 'UID for development on slaveduo',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'AE2CB0FFA7FFA0E4': {
+		'fingerprint': '7F57824555F3395437DB1456AE2CB0FFA7FFA0E4',
+		'name': 'ipatrol',
+		'email': 'ipatrol6010@yahoo.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '1',
+		'is_qualified': '0',
+		'uids': {
+			'ipatrol': {
+				'email': 'ipatrol6010@yahoo.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'1DC5C758D22E77F2': {
+		'fingerprint': 'AEE40C04E34560A71F043D7C1DC5C758D22E77F2',
+		'name': 'Fedora',
+		'email': 'fedora@fedoraproject.org',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Fedora': {
+				'email': 'fedora@fedoraproject.org',
+				'comment': '11',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'Fedora': {
+				'email': 'fedora@fedoraproject.org',
+				'comment': '11 Testing',
+				'revoked': '1',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'E3BA73CAF0D6B1E0': {
+		'fingerprint': 'C5F4BAC4A7B22DB8B8F85538E3BA73CAF0D6B1E0',
+		'name': 'TrueCrypt Foundation',
+		'email': 'info@truecrypt-foundation.org',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'TrueCrypt Foundation': {
+				'email': 'info@truecrypt-foundation.org',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'TrueCrypt Foundation': {
+				'email': 'contact@truecrypt.org',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'536D7C2009D738AD': {
+		'fingerprint': '572DBDD54EA82E83CB0D7AFF536D7C2009D738AD',
+		'name': 'röger 1234',
+		'email': 'testkey3@rfgate.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'röger 1234': {
+				'email': 'testkey3@rfgate.com',
+				'comment': 'THis is a cömment',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'Maven Raphene': {
+				'email': 'mavenraphene@curetheitch.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'7FADBAF4B079A768': {
+		'fingerprint': '86E9E218E6025AD2A6CCD4827FADBAF4B079A768',
+		'name': 'Aaron C. de Bruyn',
+		'email': 'aaron@darkpixel.com',
+		'expired': '1',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Aaron C. de Bruyn': {
+				'email': 'aaron@darkpixel.com',
+				'comment': 'http://www.darkpixel.com/pgp',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'875A2CEB042FBCDA': {
+		'fingerprint': 'F8CA0135631EC31E3262E8E0875A2CEB042FBCDA',
+		'name': 'Kyle L. Huff',
+		'email': 'kyle_huff@utilizeit.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Kyle L. Huff': {
+				'email': 'kyle_huff@utilizeit.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'ultimate'
+			},
+		}
+	},
+	'C5932C9513FF8B7F': {
+		'fingerprint': '43143F55246EC7FAFCC3539EC5932C9513FF8B7F',
+		'name': 'Maven Raphene',
+		'email': 'mavenraphene@curetheitch.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Maven Raphene': {
+				'email': 'mavenraphene@curetheitch.com',
+				'comment': 'spoon!',
+				'revoked': '0',
+				'validity': 'full'
+			},
+		}
+	},
+	'9A177C1B703FE994': {
+		'fingerprint': '3BDD9F25DCD580029F4EB6739A177C1B703FE994',
+		'name': 'Aaron C. de Bruyn',
+		'email': 'aaron@darkpixel.com',
+		'expired': '0',
+		'revoked': '1',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Aaron C. de Bruyn': {
+				'email': 'aaron@darkpixel.com',
+				'comment': 'http://www.darkpixel.com/pgp',
+				'revoked': '1',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'1D0B49961FBF51F3': {
+		'fingerprint': 'C699B2640C6D404E6454A9AD1D0B49961FBF51F3',
+		'name': 'James Yonan',
+		'email': 'jim@yonan.net',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'James Yonan': {
+				'email': 'jim@yonan.net',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'full'
+			},
+		}
+	},
+	'FB1A399A71409CDF': {
+		'fingerprint': 'BCB83BB331CCDBAD0ECF7650FB1A399A71409CDF',
+		'name': 'Stefan Lippers-Hollmann',
+		'email': 's.l-h@gmx.de',
+		'expired': '0',
+		'revoked': '1',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Stefan Lippers-Hollmann': {
+				'email': 's.l-h@gmx.de',
+				'comment': 'http://www.kanotix.com',
+				'revoked': '1',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'E5F3F032F343F282': {
+		'fingerprint': 'CE964841F87B029B53DAD7F4E5F3F032F343F282',
+		'name': 'Kyle L. Huff',
+		'email': 'kyle.huff@curetheitch.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Kyle L. Huff': {
+				'email': 'kyle.huff@curetheitch.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'ultimate'
+			},
+		}
+	},
+	'FC918B335044912E': {
+		'fingerprint': '1C61A2656FB57B7E4DE0F4C1FC918B335044912E',
+		'name': 'Dropbox Automatic Signing Key',
+		'email': 'linux@dropbox.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Dropbox Automatic Signing Key': {
+				'email': 'linux@dropbox.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'54422A4B98AB5139': {
+		'fingerprint': '7B0FAB3A13B907435925D9C954422A4B98AB5139',
+		'name': 'Oracle Corporation',
+		'email': 'info@virtualbox.org',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Oracle Corporation': {
+				'email': 'info@virtualbox.org',
+				'comment': 'VirtualBox archive signing key',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'23F8DCC744AAEF3D': {
+		'fingerprint': '9D2679F3BDE2BED83040297A23F8DCC744AAEF3D',
+		'name': 'Aaron C. de Bruyn',
+		'email': 'aaron@heyaaron.com',
+		'expired': '1',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '0',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '1',
+		'is_qualified': '0',
+		'uids': {
+			'Aaron C. de Bruyn': {
+				'email': 'aaron@heyaaron.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'Aaron C. de Bruyn': {
+				'email': 'code@darkpixel.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'Aaron C. de Bruyn': {
+				'email': 'ubuntu@darkpixel.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+	'99FFE525235E9D74': {
+		'fingerprint': '363E0F410EB286375412270799FFE525235E9D74',
+		'name': 'Kyle L. Huff',
+		'email': 'kyle.huff@curetheitch.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Kyle L. Huff': {
+				'email': 'kyle.huff@curetheitch.com',
+				'comment': 'http://www.curetheitch.com/',
+				'revoked': '0',
+				'validity': 'ultimate'
+			},
+		}
+	},
+	'CE2805500F6F9EAE': {
+		'fingerprint': '9B567809D65FF57E2215EB90CE2805500F6F9EAE',
+		'name': 'Aaron C. de Bruyn',
+		'email': 'aaron@heyaaron.com',
+		'expired': '0',
+		'revoked': '0',
+		'disabled': '0',
+		'invalid': '0',
+		'secret': '0',
+		'protocol': 'OpenPGP',
+		'can_encrypt': '1',
+		'can_sign': '1',
+		'can_certify': '1',
+		'can_authenticate': '0',
+		'is_qualified': '0',
+		'uids': {
+			'Aaron C. de Bruyn': {
+				'email': 'aaron@heyaaron.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'Aaron C. de Bruyn': {
+				'email': 'aaron@hubtags.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'Aaron C. de Bruyn': {
+				'email': 'aaron@darkpixel.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+			'Aaron C. de Bruyn': {
+				'email': 'aaron@firegpg.com',
+				'comment': '',
+				'revoked': '0',
+				'validity': 'unknown'
+			},
+		}
+	},
+};
