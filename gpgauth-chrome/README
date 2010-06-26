@@ -5,3 +5,5 @@ Otherwise, add extension from chrome - it will carry the NPAPI plugin so there i
 To test the extension, after installing navigate to http://gpgauth.org/tests/head_test.php
 
 To execute functions, go to chrome://extension, enable "Developer Mode" and click on the link "Inspect active views: background.html", after the element inspector pops up, go to the "Console" tab and execute public methods via `plugin.METHOD()`, i.e. "plugin.getKeyList()"
+
+
