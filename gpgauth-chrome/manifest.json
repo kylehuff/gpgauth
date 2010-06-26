@@ -1,0 +1,31 @@
+{
+  "name": "gpgAuth",
+  "version": "1.0",
+  "description": "The offical gpgAuth extention for Google Chrome - http://www.gpgauth.org",
+  "background_page": "background.html",
+  "icons": {
+      "128": "images/gpgauth-128.png",
+      "16": "images/gpgauth-16.png",
+      "32": "images/gpgauth-32.png",
+      "48": "images/gpgauth-48.png"
+   },
+  "permissions": [
+       "tabs", "http://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [ "http://*/*", "https://*/*" ],
+      "js": ["gpgauth.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "options_page": "options.html",
+  "page_action": {
+    "default_icon": "images/page_badge.png", // required
+    "default_title": "gpgAuth Enabled website",    // optional; shown in tooltip
+    "default_popup": "popup.html"    // optional
+  },
+  "plugins": [
+    { "path": "plugin/linux/i386/npgpgAuthPlugin.so", "public": true }
+  ]
+}
