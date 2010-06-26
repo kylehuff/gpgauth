@@ -89,7 +89,7 @@ string gpgAuth::getKeyList(){
     err = gpgme_op_keylist_start (ctx, NULL, 0);
     if(err != GPG_ERR_NO_ERROR) return "error: 3; Problem with keylist_start";
 
-    string retVal = "keys = {\n";
+    string retVal = "{\n";
     while (!(err = gpgme_op_keylist_next (ctx, &key)))
      {
         /*declare nuids (Number of UIDs) 
