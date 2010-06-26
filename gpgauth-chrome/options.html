@@ -1,16 +1,185 @@
 <html>
 <head>
 <title></title>
+<style>
+#header_image {
+    height: 74px;
+    width: 74px;
+    padding-right: 6px;
+}
+
+#keylist {
+    height: 450px;
+    overflow-y: scroll;
+}
+.keylistTable {
+    border-spacing: 0;
+    border-collapse: collapse;
+    padding: 0px;
+    border: 1px solid #000;
+    width: 100%;
+}
+.keylistTable th {
+    color: #ffE;
+    font-weight:bold;
+    font-size: 16px;
+    padding-left: 6px;
+    background: #333333 url('images/section_header.png') repeat-x;
+    min-width: 250px;
+    text-align: left;
+}
+.keylistTable tr {
+    width: 148px;
+    border: solid 1px #000;
+    background-color: #dddddd;
+    padding:2px 6px 2px 6px;
+    margin: 0px;
+    color: #000;
+    cursor: pointer;
+    background-position: top left;
+    background-repeat: repeat-x;    
+    background-image: url('images/menumask.png');
+    text-align: left;
+}
+.keylistTable a {
+    text-decoration: none;
+}
+.keylistTable tr a:visited {
+}
+.keylistTable tr:hover a:visited {
+    color: #000;
+    font-weight: bold;
+}
+.keylistTable tr:hover {
+    background-color: #7dc40d;
+    color: #000;
+    font-weight:bold;
+}
+.keylistTable td {
+    border-top: 1px solid #000;
+    vertical-align: top;
+    font: 12px Verdana, Arial, Helvetica, sans-serif;
+    padding-left: 8px;
+    color: inherit;
+    font-weight:inherit;
+    min-width: 150px;
+}
+.keylistTable td:hover {
+  border-left: 1px solid #6cb30c;
+  border-right: 1px solid #6cb30c;
+}
+.keylistTable .nolink {
+    cursor: default;
+}
+
+.keylistTable tr.primary_key {
+    background-color: #333;
+    color: #fff;
+    background: #333333 url('images/section_header.png') repeat-x;
+    font-weight: bold;
+}
+
+.keylistTable tr.subtr th {
+    background: none;
+    background-color: #333;
+    font-size: 10px;
+    padding-left: 16px;
+    min-width: 250px;
+    font-weight: normal;
+    text-align: left;
+}
+
+.keylistTable tr.subtr td {
+    padding-left: 16px;
+}
+
+.keylistTable tr.disabled {
+    text-decoration: line-through;
+    background: none;
+    background-color: #f00;
+    color: #000;
+}
+
+.keylistTable tr.key_spacer {
+    background: none;
+    height: 20px;
+}
+.keylistTable tr.key_spacer :hover {
+    background: none;
+}
+.keylistTable tr.key_spacer td :hover {
+    border: none;
+}
+
+</style>
 </head>
 <body>
 
-<div id="header"><h1>gpgAuth Options</h1></div>
-
-<div class="section-header first">There should be options here...</div>
-<p></p>
-
+<div id="header"><img src="images/gpgauth-128.png" id="header_image"/><h1 style="display: inline; top: -18px; position: relative;">gpgAuth Options</h1></div>
+<div id="keylist"></div>
+<br/><br/>
 <div id="footer">
   <button id="save-button" style="font-weight:bold" onclick="save()">Save</button>
   <button onclick="init()">Cancel</button>
 </div>
+<script>
+    ext = chrome.extension.getBackgroundPage();
+    keylist = eval(ext.plugin.getKeyList());
+    keylistElement = document.getElementById('keylist');
+    keylistTable = document.createElement('table');
+    keylistTable.className = 'keylistTable';
+    //keylistTable.innerHTML = "<th>Name</th><th>KeyID</th>";
+    var prev_key = null;
+    for (key in keylist){
+        if (prev_key && prev_key != key && keylist[prev_key].uids){
+            newTR = document.createElement('tr');
+            newTR.className = 'key_spacer';
+            newTR.innerHTML = '<td>&nbsp;</td>';
+            keylistTable.appendChild(newTR);
+        }
+        prev_key = key;
+        newTR = document.createElement('tr');
+        if (parseInt(keylist[key].disabled) == 1)
+            newTR.className = 'disabled';
+        if (parseInt(keylist[key].expired) == 1)
+            newTR.className = 'disabled';
+        newTR.className += ' primary_key';
+        newTD = document.createElement('td');
+        newTD.innerText = keylist[key].name;
+        newTR.appendChild(newTD);
+        newTD = document.createElement('td');
+        newTD.innerText = key.substr(-8);
+        newTR.appendChild(newTD);
+        keylistTable.appendChild(newTR);
+        // get the length of the object
+        keylist[key].nuids = 0;
+        for (uid in keylist[key].uids) {
+            keylist[key].nuids += 1;
+        }
+        for (uid in keylist[key].uids) {
+<!--            if (uid == keylist[key].name && keylist[key].nuids > 1){-->
+<!--                newTR = document.createElement('tr');-->
+<!--                newTR.className = 'subtr';-->
+<!--                newTH = document.createElement('th');-->
+<!--                newTH.innerText = "UID";-->
+<!--                newTR.appendChild(newTH);-->
+<!--                newTH = document.createElement('th');-->
+<!--                newTH.innerText = "Email";-->
+<!--                newTR.appendChild(newTH);-->
+<!--                keylistTable.appendChild(newTR);-->
+<!--                continue;-->
+<!--            }-->
+            newTR = document.createElement('tr');
+            newTR.className = 'subtr';
+            newTD = document.createElement('td');
+            newTD.innerText = 'User id: ' + uid;
+            newTR.appendChild(newTD);
+            newTD = document.createElement('td');
+            newTD.innerText = keylist[key].uids[uid].email;
+            newTR.appendChild(newTD);
+            keylistTable.appendChild(newTR);
+        }
+    }
+    keylistElement.appendChild(keylistTable);
+</script>
 </html>

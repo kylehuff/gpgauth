@@ -23,8 +23,9 @@ var gpgAuth = {
     addes the gpg_auth:login event listener.
     */
     onLoad: function() {
-        /* Extension has been loaded, make 'HEAD' request to server for current page
-            to discover if gpgAuth enabled, and any related gpgAuth requirements */
+        /* Extension has been loaded, make a 'HEAD' request to server for the
+           current page to discover if gpgAuth enabled, and any related gpgAuth
+           requirements */
         var request         = new XMLHttpRequest();
         var response_headers = null;
 
@@ -45,24 +46,11 @@ var gpgAuth = {
                 this.gpgauth_headers.length += 1;
             }
         }
-        /* if gpgAuth headers were found, Initialize the plugin and append the plugin to the body */
+        
         this.plugin_loaded = false;
-        if (this.gpgauth_headers.length == 2000) {
-            element = document.createElement('pre');
-            document.body.appendChild(element)
-            element.innerText = "" +
-                "According to the HTTP headers returned from the server, " +
-                "this is a gpgAuth (v" +
-                "" + this.gpgauth_headers[SERVER_GPGAUTH_VERSION] + ") " +
-                "enabled page";
-            plugin_element = document.createElement('embed');
-            plugin_element.id = 'plugin';
-            plugin_element.type = 'application/x-gpgauth';
-            document.body.appendChild(plugin_element);
-            this.plugin_loaded = plugin_element.valid;            
-        }
+        /* if gpgAuth headers were found, send a message to background.html
+            to have it init the plugin */
         if (this.gpgauth_headers.length) {
-            //chrome.pageAction.show;
             chrome.extension.sendRequest({msg: 'show'}, function(response) {});
         }
         //TODO: maybe a check of the version and update here ??
