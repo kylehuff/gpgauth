@@ -1,3 +1,7 @@
 This folder contains the chrome extension - in the directory './plugin/linux/i386/' is a link to the npgpgAuthPlugin.so shared object, the link will need to be updated to match your build location for firebreath.
 
 Otherwise, add extension from chrome - it will carry the NPAPI plugin so there is no need to install the NPAPI plugin manually.
+
+To test the extension, after installing navigate to http://gpgauth.org/tests/head_test.php
+
+To execute functions, go to chrome://extension, enable "Developer Mode" and click on the link "Inspect active views: background.html", after the element inspector pops up, go to the "Console" tab and execute public methods via `plugin.METHOD()`, i.e. "plugin.getKeyList()"
