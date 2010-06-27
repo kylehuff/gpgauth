@@ -1,4 +1,4 @@
-This is a firebreath NPAPI plugin project - to compile the plugin, download firebreath, extract, and link this directory to
+This is a firebreath NPAPI plugin project - to compile the plugin, download firebreath (http://code.google.com/p/firebreath/downloads/detail?name=firebreath-1.1.0.tar.bz2), extract, and link this directory to
 /path/to/firebreath/projects/gpgAuthPlugin
 
 then cd to /path/to/firebreath/ and run `makeprep.sh`
