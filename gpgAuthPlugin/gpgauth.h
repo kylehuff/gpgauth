@@ -5,6 +5,10 @@
 
 #include <gpgme.h>
 
+#ifndef GPGME_PROTOCOL_UNKNOWN
+#define GPGME_PROTOCOL_UNKNOWN 255
+#endif
+
 class gpgAuth {
     public:
         gpgAuth(void);
