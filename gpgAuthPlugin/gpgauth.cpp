@@ -184,7 +184,7 @@ string gpgAuth::getKeyList(){
                   uid->validity == GPGME_VALIDITY_MARGINAL? "marginal":
                   uid->validity == GPGME_VALIDITY_FULL? "full":
                   uid->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";            
-            retVal += "'\n\t\t\t},\n";
+            retVal += "',\n\t\t\t},\n";
         }
         retVal += "\t\t}\n";
         gpgme_key_unref (key);

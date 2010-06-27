@@ -124,11 +124,12 @@
 </div>
 <script>
     ext = chrome.extension.getBackgroundPage();
-    keylist = eval(ext.plugin.getKeyList());
+    //TODO: do some sanity checks on the data
+    //BUG: maybe? if a double quote is found in the keydata, it will surely cause this to fail..
+    eval('keylist = '+ ext.plugin.getKeyList());
     keylistElement = document.getElementById('keylist');
     keylistTable = document.createElement('table');
     keylistTable.className = 'keylistTable';
-    //keylistTable.innerHTML = "<th>Name</th><th>KeyID</th>";
     var prev_key = null;
     for (key in keylist){
         if (prev_key && prev_key != key && keylist[prev_key].uids){
