@@ -23,6 +23,20 @@ string i_to_str(const int& number)
    return oss.str();
 }
 
+/* An inline method to replace single and double quotes 
+    from the passed string object */
+inline
+void sanitize (string& str)
+    {
+    for (int i = 0; i < str.length(); i++)
+    {
+      if (str[i] =='\'' or str[i]=='\"')
+      {
+        str.replace (i,1,"\\\\'");
+        i += 3;
+      }
+    }
+}
 
 /* Class constructor */
 gpgAuth::gpgAuth(){};
@@ -38,7 +52,7 @@ void gpgAuth::init(){
     gpgme_error_t err;
     char *_gpgme_version;
     /* Initialize the locale environment.
-     * The function `gpgme_check_version' must be called before any other
+     * The function `gpgme_check_version` must be called before any other
      * function in the library, because it initializes the thread support
      * subsystem in GPGME. (from the info page) */
     gpgAuth::_gpgme_version = (char *) gpgme_check_version(NULL);
@@ -79,17 +93,18 @@ string gpgAuth::getKeyList(){
         the keylist_mode 
         NOTE: The keylist mode flag GPGME_KEYLIST_MODE_SIGS 
             returns the signatures of UIDS with the key */
-        //TODO: Parse and validate the signatures on UIDS \
-            for methods other than a generic key-listing \
-            for the purpose of populating the GUI key-list
+    //TODO: Parse and validate the signatures on UIDS \
+        for methods other than a generic key-listing \
+        for the purpose of populating the GUI key-list
     gpgme_set_keylist_mode (ctx, (gpgme_get_keylist_mode (ctx)
                                 | GPGME_KEYLIST_MODE_VALIDATE 
                                 | GPGME_KEYLIST_MODE_SIGS));
 
+    /* gpgme_op_keylist_start (gpgme_ctx_t ctx, const char *pattern, int secret_only) */
     err = gpgme_op_keylist_start (ctx, NULL, 0);
     if(err != GPG_ERR_NO_ERROR) return "error: 3; Problem with keylist_start";
 
-    string retVal = "{\n";
+    string retVal = "{";
     while (!(err = gpgme_op_keylist_next (ctx, &key)))
      {
         /*declare nuids (Number of UIDs) 
@@ -97,100 +112,113 @@ string gpgAuth::getKeyList(){
         int nuids;
         int nsigs;
 
-        /* iterate through the subkeys and add them to the string 
-            the string will be parsed as JSON data in the extension */
-        for (nuids=0, uid=key->uids; uid; uid = uid->next)
-            nuids++;
+        /* iterate through the keys/subkeys and add them to the std::string retVal
+            - the retVal string will be parsed as JSON data in the extension */
         if (key->subkeys && key->subkeys->keyid)
-            retVal += "\t'";
+            retVal += "\n\t\"";
             retVal += key->subkeys->keyid;
-            retVal += "': {\n\t\t";
-        if (key->subkeys && key->subkeys->fpr)
-            retVal += "'fingerprint': '";
-            retVal += (char *) key->subkeys->fpr;
-            retVal += "',\n\t\t";
+            retVal += "\":{\n\t";
         if (key->uids && key->uids->name)
-            retVal += "'name': '";
-            retVal += (char *) key->uids->name;
-            retVal += "',\n\t\t";
+            retVal += "\"name\": \"";
+            string name_str = nonnull (key->uids->name);
+            sanitize (name_str);
+            retVal += name_str;
+            retVal += "\",\n\t";
+        if (key->subkeys && key->subkeys->fpr)
+            retVal += "\"fingerprint\": \"";
+            retVal += (char *) key->subkeys->fpr;
+            retVal += "\",\n\t";
         if (key->uids && key->uids->email)
-            retVal += "'email': '";
-            retVal += (char *) key->uids->email;
-            retVal += "',\n\t\t";
-        retVal += "'expired': '";
+            retVal += "\"email\": \"";
+            string email_str = nonnull (key->uids->email);
+            sanitize (email_str);
+            retVal += email_str;
+            retVal += "\",\n\t";
+        retVal += "\"expired\": \"";
         retVal += key->expired? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'revoked': '";
+        retVal += "\",\n\t";
+        retVal += "\"revoked\": \"";
         retVal += key->revoked? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'disabled': '";
+        retVal += "\",\n\t";
+        retVal += "\"disabled\": \"";
         retVal += key->disabled? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'invalid': '";
+        retVal += "\",\n\t";
+        retVal += "\"invalid\": \"";
         retVal += key->invalid? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'secret': '";
+        retVal += "\",\n\t";
+        retVal += "\"secret\": \"";
         retVal += key->secret? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'protocol': '";
+        retVal += "\",\n\t";
+        retVal += "\"protocol\": \"";
         retVal += key->protocol == GPGME_PROTOCOL_OpenPGP? "OpenPGP":
                   key->protocol == GPGME_PROTOCOL_CMS? "CMS":
                   key->protocol == GPGME_PROTOCOL_UNKNOWN? "Unknown": "[?]";
-        retVal += "',\n\t\t";
-        retVal += "'can_encrypt': '";
+        retVal += "\",\n\t";
+        retVal += "\"can_encrypt\": \"";
         retVal += key->can_encrypt? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'can_sign': '";
+        retVal += "\",\n\t";
+        retVal += "\"can_sign\": \"";
         retVal += key->can_sign? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'can_certify': '";
+        retVal += "\",\n\t";
+        retVal += "\"can_certify\": \"";
         retVal += key->can_certify? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'can_authenticate': '";
+        retVal += "\",\n\t";
+        retVal += "\"can_authenticate\": \"";
         retVal += key->can_authenticate? "1":"0";
-        retVal += "',\n\t\t";
-        retVal += "'is_qualified': '";
+        retVal += "\",\n\t";
+        retVal += "\"is_qualified\": \"";
         retVal += key->is_qualified? "1":"0";
-        retVal += "',\n\t\t";
-        if (nuids > 0)
-            retVal += "'uids': {\n";
+        retVal += "\",\n\t";
+        retVal += "\"uids\": [ ";
         for (nuids=0, uid=key->uids; uid; uid = uid->next, nuids++) {
-            retVal += "\t\t\t'";
-            retVal += nonnull(uid->name);
-            retVal += "': {\n\t\t\t\t";
-            retVal += "'email': '";
-            retVal += nonnull(uid->email);
-            retVal += "',\n\t\t\t\t";
-            retVal += "'comment': '";
-            retVal += nonnull(uid->comment);
-            retVal += "',\n\t\t\t\t";
-            retVal += "'invalid': '";
+            retVal += "{ \"uid\": \"";
+            string name_str = nonnull (uid->name);
+            sanitize (name_str);
+            retVal += name_str;
+            retVal += "\",\n\t\t";
+            retVal += "\"email\": \"";
+            string email_str = nonnull (uid->email);
+            sanitize (email_str);
+            retVal += email_str; 
+            retVal += "\",\n\t\t";
+            retVal += "\"comment\": \"";
+            string comment_str = nonnull (uid->comment);
+            sanitize (comment_str);
+            retVal += comment_str;
+            retVal += "\",\n\t\t";
+            retVal += "\"invalid\": \"";
             retVal += uid->invalid? "1":"0";
-            retVal += "',\n\t\t\t\t";
-            retVal += "'revoked': '";
+            retVal += "\",\n\t\t";
+            retVal += "\"revoked\": \"";
             retVal += i_to_str(uid->revoked);
-            retVal += "',\n\t\t\t\t";
-            retVal += "'singatures': '";
+            retVal += "\",\n\t\t";
+            retVal += "\"singatures\": \"";
             for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
                 nsigs += 1;
             }
             retVal += i_to_str(nsigs);
-            
-            retVal += "',\n\t\t\t\t";
-            retVal += "'validity': '";
+            retVal += "\",\n\t\t";
+            retVal += "\"validity\": \"";
             retVal += uid->validity == GPGME_VALIDITY_UNKNOWN? "unknown":
                   uid->validity == GPGME_VALIDITY_UNDEFINED? "undefined":
                   uid->validity == GPGME_VALIDITY_NEVER? "never":
                   uid->validity == GPGME_VALIDITY_MARGINAL? "marginal":
                   uid->validity == GPGME_VALIDITY_FULL? "full":
                   uid->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";            
-            retVal += "',\n\t\t\t},\n";
+            retVal += "\" }";
+            if (uid->next) {
+                retVal += ",\n\t\t";
+            }
         }
-        retVal += "\t\t}\n";
+        retVal += " ]\n\t";
         gpgme_key_unref (key);
-        retVal += "\t},\n";
-     }
-     retVal += "};";
+        retVal += "},";
+    }
+    /* the last key cannot have a trailing comma for compliant 
+        JSON, so strip it off before adding the final curly-bracket */
+    if (gpg_err_code (err) == GPG_ERR_EOF)
+        retVal = retVal.substr (0, retVal.length() - 1);
+    retVal += "\n}";
     if (gpg_err_code (err) != GPG_ERR_EOF) exit(6);
     err = gpgme_op_keylist_end (ctx);
     if(err != GPG_ERR_NO_ERROR) exit(7);
