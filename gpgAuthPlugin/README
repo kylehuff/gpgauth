@@ -27,3 +27,16 @@ To build the library only, cd to /path/to/firebreath/projects/gpgAuthPlugin and 
 * `g++ -lgpgme -lgpg-error gpgauth.cpp -o gpgauth`
 
 Then execute ./gpgauth
+
+
+Load the Plugin in Chrome
+=========================
+* cd /path/to/gpgauth/gpgauth-chrome/plugin/linux/i386
+* ln -s /path/to/firebreath/build/bin/gpgAuthPlugin/npgpgAuthPlugin.so .
+* Go into Chrome and navigate to chrome:extensions
+* Switch to developer mode
+* Click 'Load unpacked extension'
+* Navigate to /path/to/gpgauth/gpgauth-chrome and click 'ok'
+
+The plugin should be loaded now.
+Nagivate to http://gpgauth.org/tests/head_test.php
