@@ -1,3 +1,4 @@
+#define _FILE_OFFSET_BITS 64
 #include <locale.h>
 #include <stdlib.h>
 #include <sstream>
