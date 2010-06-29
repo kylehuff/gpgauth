@@ -6,6 +6,9 @@ Copyright (c) 1996-2010
 gpgAuth: A protocol to seamlessly authenticate users securely using a single non-distributed password.
 
 
+The spec is seriously out of date now that developemnt has started...
+
+
 What is it?
 ===========
 gpgAuth is a process to authenticate users and servers using the exchange of GPG keys.
