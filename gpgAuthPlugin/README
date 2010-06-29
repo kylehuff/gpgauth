@@ -1,24 +1,29 @@
-This is a firebreath NPAPI plugin project - to compile the plugin, 
-download firebreath (http://firebreath.googlecode.com/files/firebreath-1.1.0.tar.bz2),
-extract, and link this directory to /path/to/firebreath/projects/gpgAuthPlugin
+This is a firebreath NPAPI plugin project
 
-firebreath dependencies:
-cmake
-libgtk2.0-dev
+Install Dependencies
+====================
+* Download and extract firebreath (http://firebreath.googlecode.com/files/firebreath-1.1.0.tar.bz2)
+* extract firebreath somewhere outside the gpgAuth src tree
+* Install cmake, libgtk2.0-dev, and libgpgme11-dev (Debian: apt-get install cmake libgtk2.0-dev libgpgme11-dev)
 
 
-then cd to /path/to/firebreath/ and run `makeprep.sh`
+Prep Build Environment
+======================
+* Create a 'projects' folder under the firebreath root
+* Symlink the gpgAuthPlugin directory to /path/to/firebreath/projects/gpgAuthPlugin
+* cd /path/to/firebreath
+* `./prepmake.sh`
 
-then cd to /path/to/firebreath/build
 
-and type `make`
+Build gpgAuth Plugin
+====================
+* cd /path/to/firebreath/build
+* `make`
 
-Library dependencies:
-    libgpgme11-dev
 
-To compile only the gpgAuth library, cd to /path/to/firebreath/projects/gpgAuthPlugin and execute
+Build Library Only
+==================
+To build the library only, cd to /path/to/firebreath/projects/gpgAuthPlugin and execute:
+* `g++ -lgpgme -lgpg-error gpgauth.cpp -o gpgauth`
 
-`g++ -lgpgme -lgpg-error gpgauth.cpp -o gpgauth`
-
-then execute ./gpgauth
-
+Then execute ./gpgauth
