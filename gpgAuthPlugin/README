@@ -21,14 +21,19 @@ Build gpgAuth Plugin
 * `make`
 
 
+<<<<<<< Updated upstream:gpgAuthPlugin/README
 Build Library Only
 ==================
 To build the library only, cd to /path/to/firebreath/projects/gpgAuthPlugin and execute:
 * `g++ -lgpgme -lgpg-error gpgauth.cpp -o gpgauth`
 
 Then execute ./gpgauth
+=======
+To compile only the gpgAuth library, cd to /path/to/firebreath/projects/gpgAuthPlugin and execute `make`
+>>>>>>> Stashed changes:gpgAuthPlugin/README
 
 
+<<<<<<< Updated upstream:gpgAuthPlugin/README
 Load the Plugin in Chrome
 =========================
 * cd /path/to/gpgauth/gpgauth-chrome/plugin/linux/i386
@@ -40,3 +45,39 @@ Load the Plugin in Chrome
 
 The plugin should be loaded now.
 Nagivate to http://gpgauth.org/tests/head_test.php
+=======
+
+---------- WINDOWS ---------------
+(if you got past the title, hold on... what a pain in the ass)
+
+Windows 32 or 64bit building instructions -
+
+download tdm-gcc:
+
+http://sourceforge.net/projects/tdm-gcc/files/TDM-GCC%20Installer/tdm-gcc-4.5.0.exe/download
+
+- or -
+
+http://iweb.dl.sourceforge.net/project/tdm-gcc/TDM-GCC%20Installer/tdm-gcc-4.5.0.exe
+
+download cmake: http://www.cmake.org/files/v2.8/cmake-2.8.1-win32-x86.exe
+
+download MSYS: ftp://ftp.gnupg.org/gcrypt/gpgme/gpgme-1.1.8.tar.bz2
+
+download gpg-error, libassusan and gpgme from www.gnugpg.org
+
+--- Compile GnuPG ---
+Extract gnupg source files to C:\mysys\home\<USER>\gnupg
+
+Open Start, Program Files, MSYS, cd to ~/gnupg
+
+(starting with libassusan, then gpg-error, then gpgme)
+for each directory, run './configure && make && make install'
+This compiles and installs the needed gpgme libraries into your MSYS installation (by defualt, c:\msys\1.0\usr\, NOT your windows PC..
+
+
+
+
+--- Compile gpgauth lib ---
+g++ -Wall -I c:\msys\1.0\usr\include -L c:\msys\1.0\local\lib -lgpg-error -lgpgme -o gpgauth.exe gpgauth.cpp
+>>>>>>> Stashed changes:gpgAuthPlugin/README

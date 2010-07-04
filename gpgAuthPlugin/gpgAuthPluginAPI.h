@@ -17,6 +17,7 @@ public:
     void set_testString(const std::string& val);
 
     std::string getKeyList(const FB::CatchAll& args);
+    std::string gpgEncrypt(const FB::CatchAll& args);
 
     // Read-only property ${PROPERTY.ident}
     std::string get_version();

@@ -17,6 +17,7 @@ SOURCE_GROUP(${PLATFORM_NAME} FILES ${PLATFORM})
 
 # use this to add preprocessor definitions
 add_definitions(
+    -D_FILE_OFFSET_BITS=64
 )
 
 set (SOURCES

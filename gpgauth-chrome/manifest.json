@@ -26,6 +26,6 @@
     "default_popup": "popup.html"    // optional
   },
   "plugins": [
-    { "path": "plugin/linux/i386/npgpgAuthPlugin.so", "public": true }
+    { "path": "plugin/linux/i386/npgpgAuthPlugin.so", "public": false }
   ]
 }

@@ -3,11 +3,12 @@
 SERVER_GPGAUTH_VERSION = 'X-GPGAuth-Version'        /* HTTP Header that reports the gpgAuth server implementation version
                                                        This header is matched against the extension & plugin version for compatability,
                                                        and also serves to advertize server gpgAuth support */
-RESOURCE_AUTH_REQUIRED = 'X-GPGAuth-Requested'       /* Used to indicate that the requested resource has requested gpgAuth authentication */
+RESOURCE_AUTH_REQUIRED = 'X-GPGAuth-Requested'      /* Used to indicate that the requested resource has requested gpgAuth authentication */
 RESOURCE_AUTH_REQUIRED = 'X-GPGAuth-Required'       /* Used to indicate that the requested resource requires gpgAuth authentication */
 SERVICE_LOGIN_URL = 'X-GPGAuth-Login-URL'           /* URL to submit authentication events */
 SERVICE_SIGNUP_URL = 'X-GPGAuth-Signup-URL'         /* URL to sign-up for account */
 SERVICE_MIGRATION_URL = 'X-GPGAuth-Migration-URL'   /* URL to migrate legacy UN/PW auth to gpgAuth - or to setup gpgAuth for an existing account */
+LOGIN_METHOD = 'X-GPGAuth-Method'                   /* POST?, blah, blah */
 /* End Constants */
 
 
@@ -30,6 +31,7 @@ var gpgAuth = {
         var response_headers = null;
 
         request.open("head", document.URL, false);
+        request.setRequestHeader('X-User-Agent', 'gpgAuth/1.3');
         request.send(null);
         /* Make the request */
         response_headers = request.getAllResponseHeaders()
