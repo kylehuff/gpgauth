@@ -1,4 +1,4 @@
 *.so
 *.swp
-gpgAuthPlugin/gpgauth
 *.patch
+gpgAuthPlugin/gpgauth
