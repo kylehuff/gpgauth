@@ -1,0 +1,68 @@
+#toolbar-gpgauth {
+  list-style-image: url("chrome://gpgauth/skin/gpgauth.png");
+  -moz-image-region: rect(0px 24px 24px 0px);
+}
+
+.gpgauth-menu-sign {
+  list-style-image: url("chrome://gpgauth/skin/sign.png");
+}
+
+.gpgauth-menu-rease {
+  list-style-image: url("chrome://gpgauth/skin/rase.png");
+}
+
+.gpgauth-menu-import {
+  list-style-image: url("chrome://gpgauth/skin/import.png");
+}
+
+.gpgauth-menu-export {
+  list-style-image: url("chrome://gpgauth/skin/export.png");
+}
+
+.gpgauth-menu-verif {
+  list-style-image: url("chrome://gpgauth/skin/verif.png");
+}
+
+.gpgauth-menu-crypt {
+  list-style-image: url("chrome://gpgauth/skin/crypt.png");
+}
+
+.gpgauth-menu-cryptsign {
+  list-style-image: url("chrome://gpgauth/skin/cryptsign.png");
+}
+
+.gpgauth-menu-decrypt {
+  list-style-image: url("chrome://gpgauth/skin/decrypt.png");
+}
+
+.gpgauth-menu-options {
+  list-style-image: url("chrome://gpgauth/skin/options.png");
+}
+
+.gpgauth-menu-editeur {
+  list-style-image: url("chrome://gpgauth/skin/editeur.png");
+}
+
+.gpgauth-menu-manager {
+  list-style-image: url("chrome://gpgauth/skin/manager.png");
+}
+
+.gpgauth-menu-hash {
+  list-style-image: url("chrome://gpgauth/skin/hash.png");
+}
+
+.gpgauth-menu {
+	list-style-image: url("chrome://gpgauth/skin/gpgauth.png");
+}
+
+#gpgauth-toolbar-button:hover {
+  -moz-image-region: rect(24px 24px 48px  0px);
+}
+
+[iconsize="small"] #gpgauth-toolbar-button {
+  -moz-image-region: rect( 0px 40px 16px 24px);
+}
+
+[iconsize="small"] #gpgauth-toolbar-button:hover {
+  -moz-image-region: rect(24px 40px 40px 24px);
+}

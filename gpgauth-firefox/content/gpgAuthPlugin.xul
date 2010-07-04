@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<overlay id="gpgAuthPlugin-overlay" xmlns:html="http://www.w3.org/1999/xhtml"
+          xmlns:xbl="http://www.mozilla.org/xbl"
+         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+    <box xmlns="http://www.w3.org/1999/xhtml">
+        <embed
+            id="gpgAuthPlugin"
+            width="1" 
+            type="application/x-gpgauth" /> 
+    </box>
+</overlay>

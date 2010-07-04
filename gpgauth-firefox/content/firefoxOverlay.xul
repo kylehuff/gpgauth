@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xul-overlay href="chrome://gpgauth/content/gpgAuthPlugin.xul"?>
+<?xml-stylesheet href="chrome://gpgauth/skin/gpgauth.css" type="text/css"?>
+<?xml-stylesheet href="chrome://gpgauth/skin/gpgauth_status.css" type="text/css"?>
+<!DOCTYPE overlay SYSTEM "chrome://gpgauth/locale/gpgauth.dtd">
+
+<overlay id="gpgauth-overlay" xmlns:html="http://www.w3.org/1999/xhtml"
+          xmlns:xbl="http://www.mozilla.org/xbl"
+         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+    <script src="gpgauth.js"/> <!---->
+    <stringbundleset id="stringbundleset">
+        <stringbundle id="gpgauth-strings" src="chrome://gpgauth/locale/gpgauth.properties"/>
+    </stringbundleset>
+
+    <!-- status window -->
+    <popupset id="mainPopupSet">
+        <panel id="gpgauth-Panel" hidden="true" orient="horizontal" pack="start" align="center" noautohide="true" noautofocus="true">
+           <stack id="gpgauth-InnerStack">
+            <vbox>
+              <stack id="gpgauth-Titlebar" style="height: 31px; width:332px; background-image: url('chrome://gpgauth/skin/sw-header-gpgauth.png');">
+                <bbox id="gpgauth-Closebox" align="right" width="100%"><image id="gpgauth-CloseButton" onclick="gpgAuth.status_window.togglePopup()" style="float: right;"/></bbox>
+              </stack>
+            </vbox>
+           <vbox id="gpgauth-Status" style="top: 31px; width:332px; height:150px; background-image:url('chrome://gpgauth/skin/sw-body-gpgauth.png');">
+            <stack style="padding: 0 3px 0 3px;">
+              <textbox multiline="true" oninput="gpgAuth.status_window.cancelInput(event, this);" class="gpgauth-StatusWindowText" id="gpgauth-Status-details"/>
+            </stack>
+            <hbox style="width:100%;">
+              <text value="copy" class="gpgauth-CustomLink" id="gpgauth-CopyButton" onclick="gpgAuth.copyToClipboard( document.getElementById('gpgauth-Status-details').value);"/>
+              <text value="clear" class="gpgauth-CustomLink" id="gpgauth-ClearButton" onclick="document.getElementById('gpgauth-Status-details').value='';"/>
+              <text value="gpgAuth options" class="gpgauth-CustomLink" id="gpgauth-OptionsButton" onclick="window.openDialog('chrome://gpgauth/content/dialogs/options.xul', 'optionsgpgAuth', 'chrome, centerscreen, toolbar', 'pane3').focus(); gpgAuth.status_window.togglePopup();"/>
+            </hbox>
+           </vbox>
+         </stack>
+        </panel>
+    </popupset>
+    <!-- end status window -->
+    <!-- statusbar button -->
+    <statusbar id="status-bar">
+        <statusbarpanel id="gpgauth-statusbar-button"
+            class="statusbarpanel-iconic"
+            onclick="return gpgAuth.status_window.togglePopup()"
+            tooltiptext="gpgAuth Status Window" style="display:none;">
+            <img src="chrome://gpgauth/skin/sb-gpgauth.png" id="gpgauth-StatusIcon" class="statusbarpanel-iconic"/>
+        </statusbarpanel>
+    </statusbar>
+    <!-- end statusbar button -->
+</overlay>

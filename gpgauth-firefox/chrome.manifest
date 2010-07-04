@@ -1,0 +1,5 @@
+content     gpgauth     content/
+locale      gpgauth     en-US       locale/en-US/
+skin        gpgauth     classic/1.0 skin/
+overlay     chrome://browser/content/browser.xul                chrome://gpgauth/content/firefoxOverlay.xul
+style       chrome://global/content/customizeToolbar.xul        chrome://gpgauth/skin/overlay.css

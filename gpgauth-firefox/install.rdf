@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<RDF:RDF xmlns:em="http://www.mozilla.org/2004/em-rdf#"
+         xmlns:NC="http://home.netscape.com/NC-rdf#"
+         xmlns:RDF="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <RDF:Description RDF:about="rdf:#$g5s0x"
+        em:id="toolkit@mozilla.org"
+        em:minVersion="1.5"
+        em:maxVersion="3.7" />
+  <RDF:Description RDF:about="urn:mozilla:install-manifest"
+        em:id="gpgauth@gpgauth.org"
+        em:version="1.3.2"
+        em:type="2"
+        em:name="gpgAuth"
+        em:description="The offical gpgAuth extention for Mozilla Firefox."
+        em:creator="CURE|THE|ITCH"
+        em:homepageURL="http://www.gpgauth.org/"
+        em:aboutURL="chrome://gpgauth/content/dialogs/about.xul"
+        em:optionsURL="chrome://gpgauth/content/dialogs/options.xul"
+        em:iconURL="chrome://gpgauth/content/gpgauth.png"
+        em:updateURL="http://www.gpgauth.org/firefox/stable/update.rdf"
+        em:updateKey="MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC39KBStycIN2Bk8KyCnMOGs0yi6k7fVpQjG7g7xJy/yPqBBXXYZ2E5zqCy/lLynnuWGqAhWrb4b1/i7U9Qt2uojwKoNELqb7nx219Hv753OH5jLFUwZ5GMjIJ9DxEhfjg7UG9pN2l6XZqXQqJMXz9oJf6bWZBegw0auEx1EzLzZQIDAQAsdf"
+    >
+    <em:targetApplication RDF:resource="rdf:#$g5s0x"/>
+  </RDF:Description>
+</RDF:RDF>

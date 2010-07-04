@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<!DOCTYPE dialog SYSTEM "chrome://gpgauth/locale/about.dtd">
+<dialog title="&about;" orient="vertical" autostretch="always"
+        onload="sizeToContent()" buttons="accept"
+        xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+    <vbox>
+        <text value="gpgAuth" style="font-weight: bold; font-size: x-large;"/>
+
+        <hbox>
+            <text value="&createdBy;" style="font-weight: bold;"/>
+            <text value="Kyle L. Huff"/>
+            <text value="Aaron C. de Bruyn"/>
+        </hbox>
+
+        <hbox>
+            <text value="&homepage;" style="font-weight: bold;"/>
+            <text value="http://gpgauth.org/"
+                  class="url"
+                  onclick="window.open('http://gpgauth.org'); window.close();"/>
+        </hbox>
+
+    </vbox>
+</dialog>

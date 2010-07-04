@@ -1,0 +1,16 @@
+2010-07-01 Kyle Huff
+    * gpgAuth v1.3.0
+    * Moved extension out of FireGPG due to it's discontinuation.
+    * gpgAuth now uses a NPAPI plugin for access to GnuPG
+2009-06-21 Kyle Huff
+    * gpgAuth v1.2.1 
+    * Added requirement for authentication token to be signed+encrypted
+    * Implemented optional statusbar icon and status window
+    * Firefox no longer requires restart after changing gpgAuth preferences
+    * Fixed size of domain override list 
+2009-06-21 Kyle Huff
+    * gpgAuth v1.2.1 
+    * Added requirement for authentication token to be signed+encrypted
+    * Implemented optional statusbar icon and status window
+    * Firefox no longer requires restart after changing gpgAuth preferences
+    * Fixed size of domain override list 
