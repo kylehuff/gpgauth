@@ -21,19 +21,12 @@ Build gpgAuth Plugin
 * `make`
 
 
-<<<<<<< Updated upstream:gpgAuthPlugin/README
 Build Library Only
 ==================
-To build the library only, cd to /path/to/firebreath/projects/gpgAuthPlugin and execute:
-* `g++ -lgpgme -lgpg-error gpgauth.cpp -o gpgauth`
-
-Then execute ./gpgauth
-=======
-To compile only the gpgAuth library, cd to /path/to/firebreath/projects/gpgAuthPlugin and execute `make`
->>>>>>> Stashed changes:gpgAuthPlugin/README
+* cd to /path/to/firebreath/projects/gpgAuthPlugin and execute:
+* `make`
 
 
-<<<<<<< Updated upstream:gpgAuthPlugin/README
 Load the Plugin in Chrome
 =========================
 * cd /path/to/gpgauth/gpgauth-chrome/plugin/linux/i386
@@ -47,7 +40,8 @@ The plugin should be loaded now.
 Nagivate to http://gpgauth.org/tests/head_test.php
 =======
 
----------- WINDOWS ---------------
+Compiling in WINDOWS
+==========================
 (if you got past the title, hold on... what a pain in the ass)
 
 Windows 32 or 64bit building instructions -
@@ -80,4 +74,3 @@ This compiles and installs the needed gpgme libraries into your MSYS installatio
 
 --- Compile gpgauth lib ---
 g++ -Wall -I c:\msys\1.0\usr\include -L c:\msys\1.0\local\lib -lgpg-error -lgpgme -o gpgauth.exe gpgauth.cpp
->>>>>>> Stashed changes:gpgAuthPlugin/README
