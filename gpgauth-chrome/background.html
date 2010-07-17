@@ -1,20 +1,215 @@
 <html>
 <head>
 <script>
-// Called when a message is passed.
-function onRequest(request, sender, sendResponse) {
-    // Show the page action for the tab that the sender (content script)
-    // was on.
-    if (request.msg == 'show') {
-        chrome.pageAction.show(sender.tab.id);
-    }
+var gpgauthBackground = {
+    // Called when a message is passed.
+    onRequest: function(request, sender, sendResponse) {
+        // set the default response to null
+        response = null;
+        // Show the page action for the tab that the sender (content script) was on.
+        if (request.msg == 'show') {
+            chrome.pageAction.show(sender.tab.id);
+            chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup.html"});
+        }
+        if (request.msg == 'getDomainKey') {
+            domain_keylist = plugin.getDomainKey(request.params['domain']);
+            if (request.params['verify']){
+                response = gpgauthBackground.verifyDomainKey(request.params['domain'], JSON.parse(domain_keylist));
+            } else {
+                response = JSON.parse(domain_keylist);
+            }
+        }
+        if (request.msg == 'doServerTests') {
+            domain_keylist = plugin.getDomainKey(request.params['domain']);
+            response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
+            if (response['server_validated'] == true) {
+                chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
+                gpgauthBackground.pulses[sender.tab.id] = {
+                    'timer': null,
+                    'icons': ['server_verified.png', 'default.png'],
+                    'current_icon': 1,
+                    'counter': 10
+                }
+                gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+            }
+        }
+        // Return the response and let the connection be cleaned up.
+        sendResponse({'result': response});
+    },
+    
+    /*
+    Function: verifyDomainKey
+    This function accepts a keylist object and iterates through the returned
+     keys to verify the validity of the UID(s) matching the domain have been
+     signed by one or more of the defined private keys
+    */
+    verifyDomainKey: function(domain, domain_keylist){
+        // first get a list of selected private keys for the user -
+        private_keylist = ["0DF9C95C3BE1A023", "875A2CEB042FBCDA", "E5F3F032F343F282"];
+        
+        /* for each domain_key returned by getDomainKey, and each user selected
+            private key, validate via the NPAPI plugin and return the first
+            acceptable match. A match being:
+                key.uid == document.domain && key.uid tsigned by private_keyid
+                NOTE: the key.uid must match sub.host.tld
+        */
+        usable_domain_keyid = null;
+        usable_private_keyid = null;
+        trust = -1;
+        for (domain_keyid in domain_keylist){
+            for (private_keyid in private_keylist){
+                /* plugin.verifyDomainKey returns a numeric trust value -
+                    -7: the domain UID and/or domain key was signed by an expired key
+                    -6: the domain UID and/or domain key was signed by a key that
+                        has been revoked
+                    -5: the domain uid was signed by a disabled key
+                    -4: the signature is expired
+                    -3: the domain uid signature has been revoked
+                    -2: the domain uid sinature is invalid
+                    -1: the domain uid was not signed by any enabled
+                         private key and fails web-of-trust
+                    0: UID of domain_keyid was signed by an ultimately trusted
+                        private key
+                    1: UID of domain_keyid was signed by an expired private key
+                        that is ultimately trusted
+                    2: UID of domain_keyid was signed by a private key that is
+                        other than ultimately trusted
+                    3: UID of domain_keyid was signed by an expired private key
+                        that is other than ultimately trusted
+                    4: domain_keyid was signed (not the UID) by an ultimately
+                        trusted private key
+                    5: domain_key was signed (not the UID) by an expired
+                        ultimately trusted key
+                    6: domain_keyid was signed (not the UID) by an other than
+                        ultimately trusted private key
+                    7: domain_key was signed (not the UID) by an expired
+                        other than ultimately trusted key
+                    8: domain_keyid was not signed, but meets web of trust
+                        requirements (i.e.: signed by a key that the user
+                        trusts and has signed, as defined by the user
+                        preference of "advnaced.trust_model")
+                */
+                console.log("testing domain key: " + domain_keyid + 
+                    " from domain: " + domain + " against private_key: " + private_keylist[private_keyid]);
+                trust = plugin.verifyDomainKey(
+                    domain,
+                    domain_keyid,
+                    private_keylist[private_keyid]
+                );
+                if (trust > -1){
+                    // decide here if the returned trust value matches the users defined
+                    //  preferences, if so, break out, otherwise continue searching.
+                    console.log("usable domain key: " + domain_keyid + " with a trust level of " + trust + " because signed with " + private_keylist[private_keyid]);
+                    usable_domain_keyid = domain_keyid;
+                    usable_private_keyid = private_keylist[private_keyid];
+                    usable_domain_key_trust = trust;
+                    if (trust == 0)
+                        break;
+                }
+            }
+            if (trust > -1){
+                break;
+            }
+        }
+/*        if (trust > -1){
+            usable_domain_keyid = domain_keyid;
+            usable_private_keyid = private_keylist[private_keyid];
+        }*/
+        return {'domain_key': usable_domain_keyid, 'user_key': usable_private_keyid, 'domain_key_trust': usable_domain_key_trust};
+    },
 
-    // Return nothing to let the connection be cleaned up.
-    sendResponse({});
-};
+    doServerTests: function(domain, domain_keylist, server_verify_url) {
+        if (!this.gpg_elements[domain]) {
+            this.gpg_elements[domain] = new Array();
+        }
+        this.gpg_elements[domain]['server_verify_url'] = 'http://' + domain + '/' + server_verify_url;
+        key_results = gpgauthBackground.verifyDomainKey(domain, domain_keylist);
+        //verify the result here, consult preferences for minimum trust level
+        this.gpg_elements[domain]['domain_key'] = key_results['domain_key'];
+        this.gpg_elements[domain]['domain_key_trust'] = key_results['domain_key_trust'];
+        this.gpg_elements[domain]['user_key'] = key_results['user_key'];
+        console.log(key_results);
+        if (key_results['domain_key_trust'] < 0) {
+            return "failed trust!";
+        } else {
+            console.log ("keyresult was " + key_results['domain_key_trust'] );
+            var token = this.generate_random_token();
+            this.gpg_elements[domain]['token_for_server'] = token;
+            var encrypted_token = plugin.gpgEncrypt(token, key_results['domain_key'], '', '');
+            var server_response = gpgauthBackground.doServerTokenTests(domain, encrypted_token);
+            return this.gpg_elements[domain];
+        }
+    },
 
+
+    doServerTokenTests: function(domain, encrypted_token) {
+        // reset server_validated to false in-case of an exception
+        this.gpg_elements[domain]['server_validated'] = false;
+        var http = new XMLHttpRequest();
+        var params = "gpg_auth:server_verify_token=" + encodeURIComponent(encrypted_token);
+        http.open("POST", this.gpg_elements[domain]['server_verify_url'], false);
+        //Send the proper header information along with the request
+        http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        http.send(params);
+        
+        if(http.readyState == 4 && http.status == 200) {
+            server_response = http.getResponseHeader('X-GPGAuth-Verify-Response')
+        } else {
+            server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
+        }
+        if (this.debug){
+            console.log(http.responseText);
+            console.log(server_response);
+        }
+        var random_re = new RegExp( "^[a-z0-9]+$", "i" );
+        // if the response from the server matches both the format and content of the original token, server is validated
+        if (random_re.test(server_response) && server_response == this.gpg_elements[domain]['token_for_server'] ) {
+            this.gpg_elements[domain]['server_validated'] = true;
+        }
+        return server_response;
+    },
+
+    pulse: function(tab_id) {
+        if (this.pulses[tab_id]['counter']) {
+            this.pulses[tab_id]['counter'] -= 1;
+            this.pulses[tab_id]['current_icon'] = (this.pulses[tab_id]['current_icon'] == 0) ? 1 : 0;
+            chrome.pageAction.setIcon({
+                tabId: tab_id,
+                path: 'images/badges/' + this.pulses[tab_id]['icons'][this.pulses[tab_id]['current_icon']]
+            });
+        } else {
+            console.log ("removing timer for tab: " + tab_id );
+            clearInterval(this.pulses[tab_id]['timer']);
+            chrome.pageAction.setIcon({
+                tabId: tab_id,
+                path: 'images/badges/' + this.pulses[tab_id]['icons'][0]
+            });
+        }
+    },
+
+    generate_random_token: function( e ) {
+        var validchars = "";
+        var startvalid = "";
+
+        var minsize, maxsize, count, actualsize, random_value;
+        minsize = parseInt(60);
+        maxsize = parseInt(100);
+        startvalid = "";
+        validchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        actualsize = Math.floor( Math.random() * ( maxsize - minsize + 1 ) ) + minsize;
+        random_value = startvalid.charAt( Math.floor( Math.random() * startvalid.length ) );
+        for (count = 1; count < actualsize; count++){
+            random_value += validchars.charAt( Math.floor( Math.random() * validchars.length ) );
+        }
+        return random_value;
+    },
+}
+
+gpgauthBackground.gpg_elements = new Array();
+gpgauthBackground.debug = true;
+gpgauthBackground.pulses = [];
 // Listen for the content script to send a message to the background page.
-chrome.extension.onRequest.addListener(onRequest);
+chrome.extension.onRequest.addListener(gpgauthBackground.onRequest);
 </script>
 </head>
 <body>

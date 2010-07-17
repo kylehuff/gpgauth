@@ -10,6 +10,8 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
     registerMethod("echo",      make_method(this, &gpgAuthPluginAPI::echo));
     registerMethod("testEvent", make_method(this, &gpgAuthPluginAPI::testEvent));
     registerMethod("getKeyList", make_method(this, &gpgAuthPluginAPI::getKeyList));
+    registerMethod("getDomainKey", make_method(this, &gpgAuthPluginAPI::getDomainKey));
+    registerMethod("verifyDomainKey", make_method(this, &gpgAuthPluginAPI::verifyDomainKey));
     registerMethod("gpgEncrypt", make_method(this, &gpgAuthPluginAPI::gpgEncrypt));
 
     // Read-write property
@@ -23,28 +25,31 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
                      make_property(this,
                         &gpgAuthPluginAPI::get_version));
     
-    
-    registerEvent("onfired");    
+    registerEvent("onfired");
 }
 
 gpgAuthPluginAPI::~gpgAuthPluginAPI()
 {
 }
 
-
-std::string gpgAuthPluginAPI::getKeyList(const FB::CatchAll& args){ 
+std::string gpgAuthPluginAPI::getKeyList(){
     gpgAuth gpgauth;
-    //if (gpgauth.is_initted != 1)
-    gpgauth.init();
-    std::string test = gpgauth.getKeyList();
-    return test;
+    return gpgauth.getKeyList("");
 }
 
-std::string gpgAuthPluginAPI::gpgEncrypt(const FB::CatchAll& args){ 
-    gpgAuth gpgauth;    
-    gpgauth.init();
-    std::string test = gpgauth.gpgEncrypt("Some data to encrypt..", "keyid09090");
-    return test;
+std::string gpgAuthPluginAPI::getDomainKey(std::string domain){
+    gpgAuth gpgauth;
+    return gpgauth.getKeyList(domain);
+}
+
+int gpgAuthPluginAPI::verifyDomainKey(std::string domain, std::string domain_key_fpr, std::string required_sig_keyid) {
+    gpgAuth gpgauth;
+    return gpgauth.verifyDomainKey(domain, domain_key_fpr, required_sig_keyid);
+}
+
+std::string gpgAuthPluginAPI::gpgEncrypt(std::string data, std::string enc_to_keyid, std::string enc_from_keyid, std::string sign){ 
+    gpgAuth gpgauth;
+    return gpgauth.gpgEncrypt(data, enc_to_keyid, enc_from_keyid, sign);
 }
 
 // Read/Write property testString

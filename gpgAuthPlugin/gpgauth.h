@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <iostream>
+#include <string.h>
 
 #include <gpgme.h>
 
@@ -23,13 +24,17 @@ class gpgAuth {
     public:
         gpgAuth(void);
         ~gpgAuth(void);
-        void init();
+        gpgme_ctx_t init();
         int is_initted;
+        /* Method to verify the key associated with <domain> is
+            valid and is signed by the user */
+        std::string getDomainKey(string domain=NULL);
+        int verifyDomainKey(string domain, string domain_key_fpr, string required_sig_keyid);
         // TODO: move to private after the removal of main()
-        std::string getKeyList();
+        std::string getKeyList(string domain=NULL);
         // TODO: move to private after the removal of main()
         std::string _gpgme_version;
-        std::string gpgEncrypt(string text, string enc_to_keyid, 
-            string enc_from_keyid = "", int sign = 0);
+        std::string gpgEncrypt(string data, string enc_to_keyid, 
+            string enc_from_keyid = NULL, string sign = NULL);
     private:
 };

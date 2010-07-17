@@ -16,16 +16,16 @@
     {
       "matches": [ "http://*/*", "https://*/*" ],
       "js": ["gpgauth.js"],
-      "run_at": "document_start"
+      "run_at": "document_end"
     }
   ],
   "options_page": "options.html",
   "page_action": {
-    "default_icon": "images/page_badge.png", // required
+    "default_icon": "images/badges/default.png", // required
     "default_title": "gpgAuth Enabled website",    // optional; shown in tooltip
     "default_popup": "popup.html"    // optional
   },
   "plugins": [
-    { "path": "Linux_x86-gcc3/npgpgAuthPlugin.so", "public": false }
+    { "path": "plugins/Linux_x86-gcc3/npgpgAuthPlugin.so", "public": false }
   ]
 }

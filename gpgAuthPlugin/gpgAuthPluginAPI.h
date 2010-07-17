@@ -16,8 +16,10 @@ public:
     std::string get_testString();
     void set_testString(const std::string& val);
 
-    std::string getKeyList(const FB::CatchAll& args);
-    std::string gpgEncrypt(const FB::CatchAll& args);
+    std::string getKeyList();
+    std::string getDomainKey(std::string domain);
+    int verifyDomainKey(std::string domain, std::string domain_key_fpr, std::string required_sig_keyid);
+    std::string gpgEncrypt(std::string data, std::string enc_to_keyid, std::string enc_from_keyid = NULL, std::string sign = NULL);
 
     // Read-only property ${PROPERTY.ident}
     std::string get_version();

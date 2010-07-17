@@ -1,4 +1,7 @@
 /* Constants */
+GPGAUTH_VERSION = "v1.2.1";
+CLIENT_VERSION = "v1.2.1";
+
 // HTTP Headers
 SERVER_GPGAUTH_VERSION = 'X-GPGAuth-Version'        /* HTTP Header that reports the gpgAuth server implementation version
                                                        This header is matched against the extension & plugin version for compatability,
@@ -9,6 +12,7 @@ SERVICE_LOGIN_URL = 'X-GPGAuth-Login-URL'           /* URL to submit authenticat
 SERVICE_SIGNUP_URL = 'X-GPGAuth-Signup-URL'         /* URL to sign-up for account */
 SERVICE_MIGRATION_URL = 'X-GPGAuth-Migration-URL'   /* URL to migrate legacy UN/PW auth to gpgAuth - or to setup gpgAuth for an existing account */
 LOGIN_METHOD = 'X-GPGAuth-Method'                   /* POST?, blah, blah */
+SERVER_VERIFICATION_URL = 'X-GPGAuth-Verify-URL'    /* URL to perform server verification (must be relative?) */
 /* End Constants */
 
 
@@ -20,22 +24,29 @@ var gpgAuth = {
 
     /*
     Function: onLoad
-    This function is called when a new Firefox window is created. It inititializes the strings, sets the GPG preferences and
-    addes the gpg_auth:login event listener.
+    This function is called when a new chrome window is created. It sets the GPG preferences and
+    tests the server for gpgAuth support and checks if it passes validation.
     */
     onLoad: function() {
+        this._version = CLIENT_VERSION;
+        this.gpg_elements = new Array();
+        var gpgauth_enabled = true;
+        this.domain = document.domain;
+        if (!this.gpg_elements[document.domain]) {
+            this.gpg_elements[document.domain] = new Array();
+        }
         /* Extension has been loaded, make a 'HEAD' request to server for the
            current page to discover if gpgAuth enabled, and any related gpgAuth
            requirements */
-        var request         = new XMLHttpRequest();
+        var request = new XMLHttpRequest();
         var response_headers = null;
 
         request.open("head", document.URL, false);
-        request.setRequestHeader('X-User-Agent', 'gpgAuth/1.3');
+        request.setRequestHeader('X-User-Agent', 'gpgauth-discovery-chrome/1.3');
         request.send(null);
         /* Make the request */
         response_headers = request.getAllResponseHeaders()
-
+        
         /* Create an object to store any gpgAuth specific headers returned from the server. */
         //TODO: this should be a function, which returns the object.
         this.gpgauth_headers = {'length': 0};
@@ -44,6 +55,14 @@ var gpgAuth = {
         while (is_match != null) {
             is_match = re.exec(response_headers)
             if (is_match) {
+                if (is_match[1] == SERVER_VERIFICATION_URL) {
+                    if (is_match[2][0] != '/'){
+                        /* the verification url points to another server was found
+                            we are not going to continue */
+                        this.gpgauth_headers[is_match[1]] = 'invalid';
+                        break;
+                    }
+                }
                 this.gpgauth_headers[is_match[1]] = is_match[2];
                 this.gpgauth_headers.length += 1;
             }
@@ -54,19 +73,21 @@ var gpgAuth = {
             to have it init the plugin */
         if (this.gpgauth_headers.length) {
             chrome.extension.sendRequest({msg: 'show'}, function(response) {});
+            if (this.gpgauth_headers[SERVER_VERIFICATION_URL] != 'invalid') {
+                /* do server tests */
+                // Check if we have the servers public key
+                chrome.extension.sendRequest({msg: 'doServerTests', params: {'domain':document.domain, 
+                    'server_verify_url': this.gpgauth_headers[SERVER_VERIFICATION_URL]}}, 
+                    function(response) { console.log(response); x = document.createElement('pre'); document.body.appendChild(x); x.innerText = response.result; });
+                // generate a nonce and encrypt it to the servers public key
+                
+                // generate a form and XMLHttpRequest post it to the verification URL
+
+            }
         }
         //TODO: maybe a check of the version and update here ??
-        
-        //this.gpgauthDialog( "error", 'this is a test error message', 'there really arent any details.. sorry..' );
-        this._version = "v1.2.1";
 
-        this.gpg_elements = new Array();
-        var gpgauth_enabled = true;
 
-        if ( gpgauth_enabled ) {
-            window.addEventListener( "gpg_auth:login", this.login, false, true );
-            window.addEventListener( "unload", function() { gpgAuth.listenerUnload() }, false );
-        }
 
         this.status_window = gpgauth_status;
         this.status_window.onLoad();
@@ -81,6 +102,8 @@ var gpgAuth = {
         }
         this.initialized = true;
     },
+
+    
 
     /*
     Function: listenerUnload
@@ -146,234 +169,6 @@ var gpgAuth = {
         }
     },
 
-
-    /*
-    Function: doServerTests
-    This function validates the server against the users keyring by encrypting a random token to the
-    public key on file for the given domain.
-    */
-    doServerTests: function( STK_ELM, UTK_ELM, event ) {
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'STK_ERROR' ] = false;
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'USE_UNTRUSTED' ] = false;
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_VALIDATED' ] = false;
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_UNTRUSTED' ] = true;
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_KEY_FINGERPRINT' ] = 0;
-
-        // Call FireGPG.crypt specifying the domain as the GPG Key to encrypt to.
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'RANDOM_VALUE' ] = gpgAuth.generate_random_token();
-        gpgAuth.status_window.update( "... generated a random token for the host." );
-        // Create a timestamp to later expire the token.
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'TIME_STAMP' ] = new Date().getTime();
-        var server_token = FireGPG.crypt( true, gpgAuth.gpg_elements[ gpgAuth.domain ][ 'RANDOM_VALUE' ], [ gpgAuth.domain ], true );
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_PRIKEY_ID' ] = server_token.prikey_id;
-        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_SUBKEY_ID' ] = server_token.subkey_id;
-        if ( server_token.subkey_id && ! server_token.subkey_id == server_token.prikey_id ) {
-            gpgAuth.status_window.update( "... encrypted the token to SubKey ID: " + server_token.subkey_id + " of primary Key ID: " + server_token.prikey_id  );
-        } else {
-            gpgAuth.status_window.update( "... encrypted the token to Key ID: " + server_token.prikey_id  );
-        }
-        if ( server_token.result != RESULT_SUCCESS ) {
-            // There was a problem, note that an error has occurred.
-            gpgAuth.gpg_elements[ gpgAuth.domain ][ 'STK_ERROR' ] = true;
-            error = server_token.sdOut;
-            if ( error.search( "INV_RECP 10" ) > -1 ) {
-                var not_trusted = true; // Server key not trusted in keyring
-                gpgAuth.status_window.update( "... the key is not trusted in your keyring!" );
-            }
-            if ( error.search( "INV_RECP 0" ) > -1 ) {
-                var not_found = true; // Server key not found in keyring
-                gpgAuth.status_window.update( "... the key for this host was not found in your keyring!" );
-            }
-            // If either error was found, consult preferences for default response
-            if ( not_found || not_trusted ) {
-                // Set the server as UNTRUSTED
-                gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_UNTRUSTED' ] = true;
-                // Set the server key as UNTRUSTED
-                gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_KEY_NOT_TRUSTED' ] = not_trusted;
-                // Test to see if we should ignore errors for this host.
-                if ( gpgAuth.prefs.prefHasUserValue( ".domain_options." +  gpgAuth.domain + ".ignore_not_found" ) ||  gpgAuth.prefs.prefHasUserValue( ".global.ignore_not_found" ) ) {
-                    if ( gpgAuth.prefs.prefHasUserValue( ".global.ignore_not_found" ) ) {
-                        var ignore_not_found = gpgAuth.prefs.getBoolPref( ".domain_options." + gpgAuth.domain+".ignore_not_found" ) || gpgAuth.prefs.getBoolPref( ".global.ignore_not_found" );
-                    } else {
-                        var ignore_not_found = gpgAuth.prefs.getBoolPref( ".domain_options." + gpgAuth.domain+".ignore_not_found" )
-                    }
-                    gpgAuth.gpg_elements[ gpgAuth.domain ][ 'USE_UNTRUSTED' ] = ignore_not_found;
-                }
-                if ( gpgAuth.prefs.prefHasUserValue( ".domain_options." + gpgAuth.domain+".ignore_not_trusted" ) ||  gpgAuth.prefs.prefHasUserValue( ".global.ignore_not_trusted" ) ) {
-                    if ( gpgAuth.prefs.prefHasUserValue( ".global.ignore_not_trusted" ) ) {
-                        var ignore_not_trusted = gpgAuth.prefs.getBoolPref( ".domain_options." + gpgAuth.domain+".ignore_not_trusted" ) || gpgAuth.prefs.getBoolPref( ".global.ignore_not_trusted" );
-                    } else {
-                        var ignore_not_trusted = gpgAuth.prefs.getBoolPref( ".domain_options." + gpgAuth.domain+".ignore_not_trusted" );
-                    }
-                    gpgAuth.gpg_elements[ gpgAuth.domain ][ 'USE_UNTRUSTED' ] = ignore_not_trusted;
-                }
-                // If a preference was not found, prompt the user for desired action, and provide
-                // an option to store as default action.
-                if ( ! ignore_not_found && ! ignore_not_trusted ) {
-                    // Build the prompt based on the error.
-                    if ( not_found ) {
-                        var error_message = "Server Key Not Found in your keyring";
-                        var details = "No matching Public Key for '" + gpgAuth.domain + "' was found";
-                        var check_text = "Check here to Ignore Missing Server Key Errors for this domain (" + gpgAuth.domain + ") from now on.";
-                    } else if ( not_trusted ) {
-                        var error_message = "Server Key Not Trusted in your keyring";
-                        var details = "The matching Public Key for '" + gpgAuth.domain + "' is not trusted in your Keyring";
-                        var check_text = "Check here to Ignore Untrusted Server Key Errors for this domain (" + gpgAuth.domain + ") from now on.";
-                    }
-                    var response = gpgAuth.gpgauthDialog( "warning", error_message, details, check_text  );
-                    if ( response ) {
-                        if ( response.check && not_found ) {
-                            gpgAuth.prefs.setBoolPref( ".domain_options." + gpgAuth.domain + ".ignore_not_found", response.check );
-                        } else if ( response.check && not_trusted ) {
-                            gpgAuth.prefs.setBoolPref( ".domain_options." + gpgAuth.domain + ".ignore_not_trusted", response.check );
-                        }
-                        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'STK_ERROR' ] = false;
-                        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'USE_UNTRUSTED' ] = true;
-                        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_VALIDATED' ] = "No, but use anyway";
-                        STK_ELM.innerHTML = error;
-                        gpgAuth.status_window.update( "... continuing by request.." );
-                        return true;
-                    } else {
-                        // Prompt cancelled; return false
-                        gpgAuth.status_window.update( "... cancelling by request.." );
-                        return false;
-                    }
-                } else { // Else we should ignore these errors for this host and continue anyway.
-                    gpgAuth.status_window.update( "... host checking for this domain has been disabled by preference." );
-                    // Set the gpgAuth error status to false (the security failure has been acknowledged.)
-                    gpgAuth.gpg_elements[ gpgAuth.domain ][ 'STK_ERROR' ] = false;
-                    // Set the USE_UNTRUSTED flag to true
-                    gpgAuth.gpg_elements[ gpgAuth.domain ][ 'USE_UNTRUSTED' ] = true;
-                    // Set the server VALIDATED flag to NO, But ignore.
-                    gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_VALIDATED' ] = true;
-                    server_token.sdOut = false;
-                    server_token.sdOut2 = false;
-                    STK_ELM.innerHTML = error;
-                    return true;
-                }
-            } else { 
-                // A server key was found, but the error returned did not match any known error,
-                //  alert the user and die
-                gpgAuth.status_window.update( "... unable to encrypt a token for this host." );
-                gpgAuth.status_window.update( "ERROR: \n" + error + ' ' + server_token.sdOut );
-                error_message = "Unable to encrypt a token for this host.";
-                details = error + ' ' + server_token.sdOut
-                gpgAuth.gpgauthDialog( "error", error_message, details );
-                return false;
-            }
-        } else {
-            if ( ! server_token.encrypted ) {
-                // We did not receive anything from GPG, die.
-                gpgAuth.status_window.update( "... no data returned from GnuPG." );
-                error_message = "Unable to encrypt a token for this host.";
-                details = "No data returned from GPG"
-                gpgAuth.gpgauthDialog( "error", error_message, details );
-                return false;
-            } else {
-                // Populate the Server Token Eelement with the data that we have encrypted
-                gpgAuth.status_window.update( "... putting encrypted token into the form field." );
-                STK_ELM.innerHTML = server_token.encrypted;
-                server_token.sdOut = false;
-                server_token.sdOut2 = false;
-                return true;
-            }
-        }
-    },
-
-
-    doServerTokenTests: function( STK_ELM, STK_RES_ELM, UTK_ELM, event ) {
-        // If 'USE_UNTRUSTED' is true, then we will not be doing any server verification
-        gpgAuth.status_window.update( "... beginning phase2 of server validation" );
-        if ( ! gpgAuth.gpg_elements[ gpgAuth.domain ][ 'USE_UNTRUSTED' ] ) {
-            if ( STK_RES_ELM && STK_RES_ELM.innerHTML.length > 2 ) {
-                // Create a regular expression to ensure the unencrypted response from the server
-                // matches the format of our random token
-                gpgAuth.status_window.update( "... collecting token from server" );
-                var random_re = new RegExp( "^[a-z0-9]+$", "i" );
-                // Proceed only if the response from the server matches both the format and content of the original token
-                if ( random_re.test( STK_RES_ELM.innerHTML ) && STK_RES_ELM.innerHTML == gpgAuth.gpg_elements[ gpgAuth.domain ][ 'RANDOM_VALUE' ] ) {
-                    if ( gpgAuth.prefs.prefHasUserValue( ".global.allow_keyring" )  && gpgAuth.prefs.getBoolPref( ".global.allow_keyring" ) ) {
-                         gpgAuth.gpg_elements[ gpgAuth.domain ][ 'ALLOW_KEYRING' ] = gpgAuth.prefs.getBoolPref( ".global.allow_keyring" );
-                    } else if ( gpgAuth.prefs.prefHasUserValue( ".domain_options." + gpgAuth.domain + ".allow_keyring" ) ) {
-                        gpgAuth.gpg_elements[ gpgAuth.domain ][ 'ALLOW_KEYRING' ] = gpgAuth.prefs.getBoolPref( ".domain_options." + gpgAuth.domain + ".allow_keyring" )
-                    }
-                    gpgAuth.status_window.update( "... requesting access to keyring to decrypt the user token" );
-                    if ( ! gpgAuth.gpg_elements[ gpgAuth.domain ][ 'ALLOW_KEYRING' ] ) {
-                        // Create a prompt for the user to ask  permission to access keyring
-                        var prompt = Components.classes["@mozilla.org/embedcomp/prompt-service;1"]
-                                    .getService(Components.interfaces.nsIPromptService);
-                        // Create the check box logic for chosing to save as default action this domain.
-                        var check_always_domain = { value: false };
-                        // Create the check box logic for chosing to save as default action all domains
-                        var check_always_global = { value: false };
-                        // Create the title, message and action
-                        var validation_title = "Allow access to GPG Keyring";
-                        var validation_error = gpgAuth.domain + " has sucessfully vadilted itself against your keyring,\nWould you like to use your keyring to authenticate your account?";
-                        var validation_action_domain = "Check here to always use GPG Authentication for this domain (" + gpgAuth.domain + ").";
-                        // Prompt
-                        var response = prompt.confirmCheck( window, validation_title, validation_error, validation_action_domain, check_always_domain );
-                        // Analyze response from prompt
-                        if ( response == true ) {
-                            if ( check_always_domain.value ) {
-                                gpgAuth.prefs.setBoolPref( ".domain_options." + gpgAuth.domain + ".allow_keyring", check_always_domain.value );
-                                gpgAuth.gpg_elements[ gpgAuth.domain ][ 'ALLOW_KEYRING' ] = true;
-                            }
-                            gpgAuth.status_window.update( "... access to keyring granted" );
-                            return true;
-                        } else {
-                            // Access to the keyring has been denied by the user.
-                            gpgAuth.status_window.update( "... access to keyring denied" );
-                            return false;
-                        }
-                    } else {
-                        gpgAuth.status_window.update( "... access to keyring pre-granted by preference" );
-                        return true;
-                    }
-                } else {
-                    if ( ! random_re.test( STK_RES_ELM.innerHTML ) ) {
-                        gpgAuth.status_window.update( "... the token returned from the server does not match the format we generated" );
-                        alert( "The token returned from the server does not match the format we generated; Aborting." );
-                        return false;
-                    } else {
-                        gpgAuth.status_window.update( "... the token returned from the server does not match the token we generated" );
-                        alert( "The token returned from the server does not match the token we generated; Aborting." );
-                        return false;
-                    }
-                }
-            } else {
-                details = "The server did not return the decrypted token"
-                gpgAuth.status_window.update( "... the server did not return the decrypted token" );
-                gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_UNTRUSTED' ] = true;
-                return false;
-            }
-        } else if ( gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_UNTRUSTED' ] ) {
-            gpgAuth.status_window.update( "... the server has failed validation" );
-            // Check to see if the user has chosen to ignore server verification failures for this domain.
-            if ( gpgAuth.prefs.prefHasUserValue( ".domain_options." + gpgAuth.domain+".ignore_server_keyerror" ) ) {
-                var ignore_server_keyerror = gpgAuth.prefs.getBoolPref( ".domain_options." + gpgAuth.domain+".ignore_server_keyerror" );
-            }
-            if ( ! ignore_server_keyerror ) {
-                // If not set to ignore, prompt the user to continue as cautioned.
-                var details = "";
-                var error_message = "The server did not successfully identify itself"
-                var response = gpgAuth.gpgauthDialog( "warning", error_message, details, "Ignore Server Key Errors for this domain (" + gpgAuth.domain + ") from now on?"  );
-                if ( response ) {
-                    if ( response.check ) {
-                        gpgAuth.prefs.setBoolPref( ".domain_options." + gpgAuth.domain + ".ignore_server_keyerror", response.check );
-                    }
-                    gpgAuth.status_window.update( "... ignoring server validation errors by user request" );
-                    return true;
-                } else {
-                    gpgAuth.status_window.update( "... cancelling server validation by user request" );
-                    return false;
-                }
-            } else {
-                // We have been told to ignore keyerrors for this sever - so return true.
-                gpgAuth.status_window.update( "... server validation errors ignored by user preference" );
-                return true;
-            }
-        }
-    },
 
     /*
     Function: decryptUserToken
@@ -522,7 +317,7 @@ var gpgAuth = {
         }
 
         var params = { pin: { icon: icon, dialog_title: title, dialog_message: error_message, dialog_details: details, checkbox_text: check_text}, pout: false };
-        window.openDialog( "chrome://firegpg/content/GpgAuth/gpgauth_dialog.xul", "gpgauthDialog", "chrome, dialog, modal, centerscreen", params ).focus();
+        window.openDialog( "chrome://gpgauth/gpgauth_dialog.xul", "gpgauthDialog", "chrome, dialog, modal, centerscreen", params ).focus();
         return params.pout;
     }
 };
