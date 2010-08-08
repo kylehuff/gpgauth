@@ -13,6 +13,7 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
     registerMethod("getDomainKey", make_method(this, &gpgAuthPluginAPI::getDomainKey));
     registerMethod("verifyDomainKey", make_method(this, &gpgAuthPluginAPI::verifyDomainKey));
     registerMethod("gpgEncrypt", make_method(this, &gpgAuthPluginAPI::gpgEncrypt));
+    registerMethod("gpgDecrypt", make_method(this, &gpgAuthPluginAPI::gpgDecrypt));
 
     // Read-write property
     registerProperty("testString",
@@ -50,6 +51,11 @@ int gpgAuthPluginAPI::verifyDomainKey(std::string domain, std::string domain_key
 std::string gpgAuthPluginAPI::gpgEncrypt(std::string data, std::string enc_to_keyid, std::string enc_from_keyid, std::string sign){ 
     gpgAuth gpgauth;
     return gpgauth.gpgEncrypt(data, enc_to_keyid, enc_from_keyid, sign);
+}
+
+std::string gpgAuthPluginAPI::gpgDecrypt(std::string data){ 
+    gpgAuth gpgauth;
+    return gpgauth.gpgDecrypt(data);
 }
 
 // Read/Write property testString

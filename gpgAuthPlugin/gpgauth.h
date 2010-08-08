@@ -36,5 +36,6 @@ class gpgAuth {
         std::string _gpgme_version;
         std::string gpgEncrypt(string data, string enc_to_keyid, 
             string enc_from_keyid = NULL, string sign = NULL);
+        std::string gpgDecrypt(string data);
     private:
 };

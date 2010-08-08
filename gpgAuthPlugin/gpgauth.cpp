@@ -153,6 +153,40 @@ string gpgAuth::gpgEncrypt(string data, string enc_to_keyid, \
     return out_buf;
 }
 
+string gpgAuth::gpgDecrypt(string data){
+    gpgme_ctx_t ctx = init();
+    gpgme_error_t err;
+    gpgme_decrypt_result_t result;
+    gpgme_data_t in, out;
+    char *agent_info;
+
+    agent_info = getenv("GPG_AGENT_INFO");
+
+    err = gpgme_data_new_from_mem (&in, data.c_str(), data.length(), 0);
+    if (err != GPG_ERR_NO_ERROR) return "error: Problem creating gpgme input buffer";
+
+    err = gpgme_data_new (&out);
+    if (err != GPG_ERR_NO_ERROR) return "error: unable to allocate result buffer";
+  
+    err = gpgme_op_decrypt (ctx, in, out);
+    if (err != GPG_ERR_NO_ERROR) return "error: Decrypt failed.";
+    result = gpgme_op_decrypt_result (ctx);
+
+
+    size_t out_size = 0;
+    string out_buf;
+    out_buf = gpgme_data_release_and_get_mem (out, &out_size);
+    /* strip the size_t data out of the output buffer */
+    out_buf = out_buf.substr(0, out_size);
+    /* set the output object to NULL since it has
+        already been released */
+    out = NULL;
+
+    gpgme_data_release (in);
+    gpgme_release (ctx);
+
+    return out_buf;
+}
 
 int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string required_sig_keyid){
     int nuids;
