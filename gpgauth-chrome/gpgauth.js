@@ -29,9 +29,10 @@ var gpgAuth = {
     */
     onLoad: function() {
         this._version = CLIENT_VERSION;
-        this.gpg_elements = new Array();
+        if (!this.gpg_elements) {
+            this.gpg_elements = new Array();
+        }
         var gpgauth_enabled = true;
-        this.domain = document.domain;
         if (!this.gpg_elements[document.domain]) {
             this.gpg_elements[document.domain] = new Array();
         }
@@ -67,33 +68,31 @@ var gpgAuth = {
                 this.gpgauth_headers.length += 1;
             }
         }
-        
+
         this.plugin_loaded = false;
         /* if gpgAuth headers were found, send a message to background.html
             to have it init the plugin */
         if (this.gpgauth_headers.length) {
             chrome.extension.sendRequest({msg: 'show'}, function(response) {});
-            if (this.gpgauth_headers[SERVER_VERIFICATION_URL] != 'invalid') {
-                /* do server tests */
-                // Check if we have the servers public key
-                chrome.extension.sendRequest({msg: 'doServerTests', params: {'domain':document.domain, 
-                    'server_verify_url': this.gpgauth_headers[SERVER_VERIFICATION_URL]}}, 
-                    function(response) { console.log(response); x = document.createElement('pre'); document.body.appendChild(x); x.innerText = response.result; });
-                // generate a nonce and encrypt it to the servers public key
-                
-                // generate a form and XMLHttpRequest post it to the verification URL
-
+            if (!this.gpg_elements[document.domain]['server_verified']) {
+                if (this.gpgauth_headers[SERVER_VERIFICATION_URL] != 'invalid') {
+                    /* do server tests */
+                    chrome.extension.sendRequest({msg: 'doServerTests', params: {'domain':document.domain, 
+                        'server_verify_url': this.gpgauth_headers[SERVER_VERIFICATION_URL],
+                        'headers': this.gpgauth_headers }}, 
+                        function(response) { gpgAuth.serverResult(response) });
+                }
+            } else {
+                console.log('not checking server again, already done');
             }
         }
         //TODO: maybe a check of the version and update here ??
 
-
-
         this.status_window = gpgauth_status;
         this.status_window.onLoad();
-        if ( gpgauth_enabled ) {
-            if ( ! this.initialized ) {
-                this.status_window.update( "gpgAuth " + this._version + " Initialized..", show=false );
+        if (gpgauth_enabled) {
+            if (!this.initialized) {
+                this.status_window.update("gpgAuth " + this._version + " Initialized..", show=false);
             }
         }
 
@@ -103,7 +102,42 @@ var gpgAuth = {
         this.initialized = true;
     },
 
-    
+    serverResult: function(response) {
+        if (response.result['server_validated'] == true) {
+            x = document.createElement('pre');
+            console.log(this.gpgauth_headers);
+            document.body.appendChild(x); x.innerText = response.result.cached;
+            if (this.gpgauth_headers['X-GPGAuth-Progress'] != 'stage2'){
+                console.log("calling doUserLogin");
+                chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain':document.domain, 
+                        'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL]}},
+                        function(response) { gpgAuth.login(response) });
+            }
+        }
+    },
+
+    login: function(response) {
+        if (response.result.valid == true) {
+            // send the token back..
+            console.log("send the token back..");
+            login_form = document.createElement('form');
+            login_form.method = "POST";
+            login_form.action = this.gpgauth_headers[SERVICE_LOGIN_URL];
+            keyid_field = document.createElement('input');
+            token_field = document.createElement('input');
+            keyid_field.type = "text";
+            token_field.type = "text";
+            keyid_field.name = "gpg_auth:keyid";
+            token_field.name = "gpg_auth:user_token_result";
+            keyid_field.setAttribute('value', response.result.keyid);
+            token_field.setAttribute('value', response.result.decrypted_token);
+            login_form.appendChild(keyid_field);
+            login_form.appendChild(token_field);
+            document.body.appendChild(login_form);
+            login_form.submit();
+            console.log(this.gpgauth_headers[SERVICE_LOGIN_URL]);
+        }
+    },
 
     /*
     Function: listenerUnload
@@ -122,7 +156,7 @@ var gpgAuth = {
     a gpgAuth enabled website. Events not caught by the webpage itself are
     bubbled up to extensions in Firefox.
     */
-    login: function( event ) {
+    logina: function( event ) {
         var error_message = false;
         var details = false;
         // Get the current domain name

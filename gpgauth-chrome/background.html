@@ -31,12 +31,66 @@ var gpgauthBackground = {
                     'counter': 10
                 }
                 gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+                response = {'server_validated': true, 'cached': response['cached']};
+            }
+        }
+        if (request.msg == 'doUserLogin') {
+            token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url']);
+            if (token_from_server){
+                response = {'valid': true, 'decrypted_token': token_from_server[0], 'keyid': token_from_server[1], 'login_in_progress': new Date().getTime() }
+                //this.gpg_elements[document.domain]['login_in_progress'] = new Date().getTime();
+            } else {
+                response = {'valid': false };
             }
         }
         // Return the response and let the connection be cleaned up.
         sendResponse({'result': response});
     },
-    
+
+    /*
+    Function: getUserToken
+    Make a request to the server to retrieve the token for the user via a
+     POST to the user_auth_url with the users username and/or keyid
+    */
+    getUserToken: function(domain, login_url) {
+        var response_headers = null;
+        var http = new XMLHttpRequest();
+        //DAE1 FF03 FBFC 8A02 0374  939F 0DF9 C95C 3BE1 A023
+        var keyid = "0DF9C95C3BE1A023";
+        var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
+        var user_auth_url = 'http://' + domain + '/' + login_url;
+        http.open("POST", user_auth_url, false);
+        http.setRequestHeader('X-User-Agent', 'gpgauth v1.3/chrome');
+        http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        http.send(params);
+        console.log(params);
+        
+        if(http.readyState == 4 && http.status == 200) {
+            server_response = http.getResponseHeader('X-GPGAuth-User-Auth-Token')
+        } else {
+            server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
+        }
+
+        if (this.debug){
+            console.log(http.responseText);
+            console.log(unescape(server_response));
+        }
+        
+        cipher = unescape(server_response).replace(/\\\+/g, ' ').replace(/\\./g, '.');
+        plaintext = plugin.gpgDecrypt(cipher);
+
+        var random_re = new RegExp( "^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i" );
+        // if the response from the server matches both the format and content of the original token, server is validated
+        if (plaintext && random_re.test(plaintext)) {
+            console.log("token matches gpgAuth format, it is safe to return to the server decrypted");
+            return [plaintext, keyid];
+        } else {
+            console.log("the token does not match the gpgAuth format, or is null");
+            return false;
+        }
+
+    },
+
     /*
     Function: verifyDomainKey
     This function accepts a keylist object and iterates through the returned
@@ -122,21 +176,28 @@ var gpgauthBackground = {
         if (!this.gpg_elements[domain]) {
             this.gpg_elements[domain] = new Array();
         }
-        this.gpg_elements[domain]['server_verify_url'] = 'http://' + domain + '/' + server_verify_url;
-        key_results = gpgauthBackground.verifyDomainKey(domain, domain_keylist);
-        //verify the result here, consult preferences for minimum trust level
-        this.gpg_elements[domain]['domain_key'] = key_results['domain_key'];
-        this.gpg_elements[domain]['domain_key_trust'] = key_results['domain_key_trust'];
-        this.gpg_elements[domain]['user_key'] = key_results['user_key'];
-        console.log(key_results);
-        if (key_results['domain_key_trust'] < 0) {
-            return "failed trust!";
+        if (!this.gpg_elements[domain]['server_verified'] == true) {
+            this.gpg_elements[domain]['server_verify_url'] = 'http://' + domain + '/' + server_verify_url;
+            key_results = gpgauthBackground.verifyDomainKey(domain, domain_keylist);
+            //verify the result here, consult preferences for minimum trust level
+            this.gpg_elements[domain]['domain_key'] = key_results['domain_key'];
+            this.gpg_elements[domain]['domain_key_trust'] = key_results['domain_key_trust'];
+            this.gpg_elements[domain]['user_key'] = key_results['user_key'];
+            this.gpg_elements[domain]['cached'] = false;
+            console.log(key_results);
+            if (parseInt(key_results['domain_key_trust']) < 0) {
+                return "failed trust!";
+            } else {
+                console.log ("keyresult was " + key_results['domain_key_trust'] );
+                var token = this.generate_random_token();
+                this.gpg_elements[domain]['token_for_server'] = token;
+                var encrypted_token = plugin.gpgEncrypt(token, key_results['domain_key'], '', '');
+                var server_response = gpgauthBackground.doServerTokenTests(domain, encrypted_token);
+                this.gpg_elements[domain]['server_verified'] = true;
+                return this.gpg_elements[domain];
+            }
         } else {
-            console.log ("keyresult was " + key_results['domain_key_trust'] );
-            var token = this.generate_random_token();
-            this.gpg_elements[domain]['token_for_server'] = token;
-            var encrypted_token = plugin.gpgEncrypt(token, key_results['domain_key'], '', '');
-            var server_response = gpgauthBackground.doServerTokenTests(domain, encrypted_token);
+            this.gpg_elements[domain]['cached'] = true;
             return this.gpg_elements[domain];
         }
     },
@@ -148,6 +209,7 @@ var gpgauthBackground = {
         var http = new XMLHttpRequest();
         var params = "gpg_auth:server_verify_token=" + encodeURIComponent(encrypted_token);
         http.open("POST", this.gpg_elements[domain]['server_verify_url'], false);
+        http.setRequestHeader('X-User-Agent', 'gpgauth v1.3/chrome');
         //Send the proper header information along with the request
         http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
         http.send(params);
@@ -178,7 +240,6 @@ var gpgauthBackground = {
                 path: 'images/badges/' + this.pulses[tab_id]['icons'][this.pulses[tab_id]['current_icon']]
             });
         } else {
-            console.log ("removing timer for tab: " + tab_id );
             clearInterval(this.pulses[tab_id]['timer']);
             chrome.pageAction.setIcon({
                 tabId: tab_id,
