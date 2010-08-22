@@ -28,10 +28,9 @@ class gpgAuth {
         int is_initted;
         /* Method to verify the key associated with <domain> is
             valid and is signed by the user */
-        std::string getDomainKey(string domain=NULL);
         int verifyDomainKey(string domain, string domain_key_fpr, string required_sig_keyid);
         // TODO: move to private after the removal of main()
-        std::string getKeyList(string domain=NULL);
+        std::string getKeyList(string domain=NULL, int secret_only=0);
         // TODO: move to private after the removal of main()
         std::string _gpgme_version;
         std::string gpgEncrypt(string data, string enc_to_keyid, 

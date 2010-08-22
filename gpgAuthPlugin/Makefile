@@ -1,3 +1,8 @@
+# This Makefile is to compile the gpgauth binary only - which
+#   would only be useful for testing. The NPAPI plugin that 
+#   uses this is compiled using Firebreath, and must be built
+#   under that environment.
+
 CPP = g++
 CPPFLAGS = -g -Wall -lgpgme -lgpg-error
 LDFLAGS = -lm -DDEBUG

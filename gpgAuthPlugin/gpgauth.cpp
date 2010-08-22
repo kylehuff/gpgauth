@@ -67,8 +67,6 @@ gpgme_ctx_t gpgAuth::init(){
     gpgme_set_textmode (ctx, 1);
     gpgme_set_armor (ctx, 1);
 
-    //cout << err << "\n";
-
     gpgAuth::is_initted = 1;
 
     return ctx;
@@ -188,6 +186,13 @@ string gpgAuth::gpgDecrypt(string data){
     return out_buf;
 }
 
+/*
+    This method ensures a given UID <domain> with matching keyid
+        <domain_key_fpr> has been signed by a required key
+        <required_sig_keyid> and returns a GAU_trust value as the result.
+        This method is intended to be called during an iteration of
+        trusted key ids.
+*/
 int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string required_sig_keyid){
     int nuids;
     int nsigs;
@@ -327,7 +332,7 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string requir
 
 /* This method is public, it returns the users keylist in a
     JSON-ish format for returning to the extension. */
-string gpgAuth::getKeyList(string domain){
+string gpgAuth::getKeyList(string domain, int secret_only){
     /* declare variables */
     gpgme_ctx_t ctx = init();
     gpgme_error_t err;
@@ -335,6 +340,7 @@ string gpgAuth::getKeyList(string domain){
     gpgme_keylist_result_t result;
     gpgme_user_id_t uid;
     gpgme_key_sig_t sig;
+    gpgme_subkey_t subkey;
 
     /* initiate a new instance (context) of gpgme and
         assign it to ctx, catch any gpgme_error */
@@ -354,11 +360,12 @@ string gpgAuth::getKeyList(string domain){
                                 | GPGME_KEYLIST_MODE_SIGS));
 
     /* gpgme_op_keylist_start (gpgme_ctx_t ctx, const char *pattern, int secret_only) */
-    if (domain != ""){
+    if (domain != ""){ // limit key listing to search criteria 'domain'
         const char *pattern = domain.c_str();
-        err = gpgme_op_keylist_start (ctx, pattern, 0);
-    } else {
-        err = gpgme_op_keylist_start (ctx, "", 0);
+        err = gpgme_op_keylist_ext_start (ctx, &pattern, 0, 0);
+    } else { // list all keys
+        const char *pattern = "";
+        err = gpgme_op_keylist_ext_start (ctx, &pattern, secret_only, 0);
     }
     if(err != GPG_ERR_NO_ERROR) return "error: 3; Problem with keylist_start";
 
@@ -366,14 +373,17 @@ string gpgAuth::getKeyList(string domain){
     while (!(err = gpgme_op_keylist_next (ctx, &key)))
      {
         /*declare nuids (Number of UIDs) 
-            and nsigs (Number of signatures) */
+            and nsigs (Number of signatures)
+            and nsubs (Number of Subkeys)*/
         int nuids;
         int nsigs;
+        int nsubs;
+        int tnsigs;
 
         /* iterate through the keys/subkeys and add them to the std::string retVal
             - the retVal string will be parsed as JSON data in the extension */
         if (key->subkeys && key->subkeys->keyid)
-            retVal += "\n\t\"";
+            retVal += "\n\"";
             retVal += key->subkeys->keyid;
             retVal += "\":{\n\t";
         if (key->uids && key->uids->name)
@@ -427,6 +437,55 @@ string gpgAuth::getKeyList(string domain){
         retVal += "\"is_qualified\": \"";
         retVal += key->is_qualified? "1":"0";
         retVal += "\",\n\t";
+        retVal += "\"subkeys\": [ ";
+        for (nsubs=0, subkey=key->subkeys; subkey; subkey = subkey->next, nsubs++) {
+            retVal += "{ \"subkey\": \"";
+            retVal += nonnull (subkey->fpr);
+            retVal += "\",\n\t\t";
+            retVal += "\"expired\": \"";
+            retVal += subkey->expired? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"revoked\": \"";
+            retVal += subkey->revoked? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"disabled\": \"";
+            retVal += subkey->disabled? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"invalid\": \"";
+            retVal += subkey->invalid? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"secret\": \"";
+            retVal += subkey->secret? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"can_encrypt\": \"";
+            retVal += subkey->can_encrypt? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"can_sign\": \"";
+            retVal += subkey->can_sign? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"can_certify\": \"";
+            retVal += subkey->can_certify? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"can_authenticate\": \"";
+            retVal += subkey->can_authenticate? "1":"0";
+            retVal += "\",\n\t\t";
+            retVal += "\"is_qualified\": \"";
+            retVal += subkey->is_qualified? "1":"0";     
+            retVal += "\",\n\t\t";
+            retVal += "\"size\": \"";
+            retVal += i_to_str (subkey->length);
+            retVal += "\",\n\t\t";
+            retVal += "\"created\": \"";
+            retVal += i_to_str(subkey->timestamp);
+            retVal += "\",\n\t\t";
+            retVal += "\"expires\": \"";
+            retVal += i_to_str(subkey->expires);
+            retVal += "\" }";
+            if (subkey->next) {
+                retVal += ",\n\t\t";
+            }
+        }
+        retVal += " ],\n\t";
         retVal += "\"uids\": [ ";
         for (nuids=0, uid=key->uids; uid; uid = uid->next, nuids++) {
             retVal += "{ \"uid\": \"";
@@ -450,12 +509,24 @@ string gpgAuth::getKeyList(string domain){
             retVal += "\"revoked\": \"";
             retVal += i_to_str(uid->revoked);
             retVal += "\",\n\t\t";
-            retVal += "\"singatures\": \"";
+            retVal += "\"signatures_count\": \"";
+            tnsigs = 0;
             for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
-                nsigs += 1;
+                tnsigs += 1;
             }
             retVal += i_to_str(nsigs);
             retVal += "\",\n\t\t";
+            retVal += "\"signatures\": [ ";
+            for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
+                retVal += "\"";
+                retVal += nonnull (sig->keyid);
+                if (tnsigs > 1 && nsigs < tnsigs - 1) {
+                    retVal += "\", ";
+                } else {
+                    retVal += "\" ";
+                }
+            }
+            retVal += "],\n\t\t";
             retVal += "\"validity\": \"";
             retVal += uid->validity == GPGME_VALIDITY_UNKNOWN? "unknown":
                   uid->validity == GPGME_VALIDITY_UNDEFINED? "undefined":
@@ -474,7 +545,7 @@ string gpgAuth::getKeyList(string domain){
     }
     /* the last key cannot have a trailing comma for compliant 
         JSON, so strip it off before adding the final curly-bracket */
-    if (gpg_err_code (err) == GPG_ERR_EOF and retVal.length() > 2)
+    if (gpg_err_code (err) == GPG_ERR_EOF && retVal.length() > 2)
         retVal = retVal.substr (0, retVal.length() - 1);
     retVal += "\n}";
     if (gpg_err_code (err) != GPG_ERR_EOF) exit(6);
@@ -506,13 +577,14 @@ int main(int argc, char **argv)
     int c;
     int ca;
     int cmd = 0;
+    int secret_only = 0;
     char* enc_to_key;
     char* sign_with_key = (char *) "";
     char* data_to_enc = (char *) "";
     char* enc_from_key = (char *) "";
     char* key_to_verify = (char *) "";
     char* pattern = (char *) "";
-    while ((c = getopt (argc, argv, ":l:v:d:t:f:s:")) != -1)
+    while ((c = getopt (argc, argv, ":l:v:d:t:f:s:p")) != -1)
          switch (c) {
             //Keylist (non-option arg)
             case 'l':
@@ -554,6 +626,18 @@ int main(int argc, char **argv)
                     key_to_verify = optarg;
                 }
                 break;
+            //List private keys
+            case 'p':
+                if (c == 'p') {
+                    cmd = 1;
+                    secret_only = 1;
+                    if (optarg) {
+                        pattern = optarg;
+                    } else {
+                        pattern = (char *) "";
+                    }
+                }
+                break;
             case ':':
                 if (argv[optind - 1][1] == 'l') {
                     cmd = 1;
@@ -568,7 +652,7 @@ int main(int argc, char **argv)
                 return 0;
     }
     if (cmd == 1) {
-        retval = gpgauth.getKeyList(pattern);
+        retval = gpgauth.getKeyList(pattern, secret_only);
     } else if (cmd == 2) {
         cout << "data to encrypt: " << data_to_enc << "\nencrypt to: " << enc_to_key << "\nencrypt from: " << enc_from_key << "\nsign with: " << sign_with_key << "\n";
         retval = gpgauth.gpgEncrypt(data_to_enc, enc_to_key, enc_from_key, sign_with_key);

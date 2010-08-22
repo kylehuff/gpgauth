@@ -7,66 +7,80 @@
 
 gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
 {
-    registerMethod("echo",      make_method(this, &gpgAuthPluginAPI::echo));
-    registerMethod("testEvent", make_method(this, &gpgAuthPluginAPI::testEvent));
     registerMethod("getKeyList", make_method(this, &gpgAuthPluginAPI::getKeyList));
+    registerMethod("getPrivateKeyList", make_method(this, &gpgAuthPluginAPI::getPrivateKeyList));
     registerMethod("getDomainKey", make_method(this, &gpgAuthPluginAPI::getDomainKey));
     registerMethod("verifyDomainKey", make_method(this, &gpgAuthPluginAPI::verifyDomainKey));
     registerMethod("gpgEncrypt", make_method(this, &gpgAuthPluginAPI::gpgEncrypt));
     registerMethod("gpgDecrypt", make_method(this, &gpgAuthPluginAPI::gpgDecrypt));
 
-    // Read-write property
-    registerProperty("testString",
-                     make_property(this,
-                        &gpgAuthPluginAPI::get_testString,
-                        &gpgAuthPluginAPI::set_testString));
-
     // Read-only property
     registerProperty("version",
                      make_property(this,
                         &gpgAuthPluginAPI::get_version));
-    
-    registerEvent("onfired");
 }
 
 gpgAuthPluginAPI::~gpgAuthPluginAPI()
 {
 }
 
+/*
+    This method executes gpgauth.getKeyList with an empty string which
+        returns all keys in the keyring.
+*/
 std::string gpgAuthPluginAPI::getKeyList(){
     gpgAuth gpgauth;
     return gpgauth.getKeyList("");
 }
 
+/*
+    This method executes gpgauth.getKeyList with an empty string and
+        secret_only=1 which returns all keys in the keyring which
+        the user has the corrisponding secret key.
+*/
+
+std::string gpgAuthPluginAPI::getPrivateKeyList(){
+    gpgAuth gpgauth;
+    return gpgauth.getKeyList("", 1);
+}
+
+/* 
+    This method just calls gpgauth.getKeyList with a domain name
+        as the parameter
+*/
 std::string gpgAuthPluginAPI::getDomainKey(std::string domain){
     gpgAuth gpgauth;
     return gpgauth.getKeyList(domain);
 }
 
-int gpgAuthPluginAPI::verifyDomainKey(std::string domain, std::string domain_key_fpr, std::string required_sig_keyid) {
+/*
+    This method ensures a given UID <domain> with matching keyid
+        <domain_key_fpr> has been signed by a required key
+        <required_sig_keyid> and returns a GAU_trust value as the result.
+        This method is intended to be called during an iteration of
+        trusted key ids.
+*/
+int gpgAuthPluginAPI::verifyDomainKey(std::string domain, 
+        std::string domain_key_fpr, std::string required_sig_keyid) {
     gpgAuth gpgauth;
     return gpgauth.verifyDomainKey(domain, domain_key_fpr, required_sig_keyid);
 }
 
-std::string gpgAuthPluginAPI::gpgEncrypt(std::string data, std::string enc_to_keyid, std::string enc_from_keyid, std::string sign){ 
+/*
+    This method passes a string to encrypt, a key to encrypt to and an
+        optional key to encrypt from and calls gpgauth.gpgEncrypt.
+        This method returns a string of the encrypted data.
+*/
+std::string gpgAuthPluginAPI::gpgEncrypt(std::string data, 
+        std::string enc_to_keyid, std::string enc_from_keyid,
+        std::string sign) {
     gpgAuth gpgauth;
     return gpgauth.gpgEncrypt(data, enc_to_keyid, enc_from_keyid, sign);
 }
 
-std::string gpgAuthPluginAPI::gpgDecrypt(std::string data){ 
+std::string gpgAuthPluginAPI::gpgDecrypt(std::string data) {
     gpgAuth gpgauth;
     return gpgauth.gpgDecrypt(data);
-}
-
-// Read/Write property testString
-std::string gpgAuthPluginAPI::get_testString()
-{
-    return m_testString;
-}
-
-void gpgAuthPluginAPI::set_testString(const std::string& val)
-{
-    m_testString = val;
 }
 
 // Read-only property version
@@ -74,15 +88,3 @@ std::string gpgAuthPluginAPI::get_version()
 {
     return "CURRENT_VERSION";
 }
-
-// Method echo
-FB::variant gpgAuthPluginAPI::echo(const FB::variant& msg)
-{
-    return msg;
-}
-
-void gpgAuthPluginAPI::testEvent(const FB::variant& var)
-{
-    FireEvent("onfired", FB::variant_list_of(var));
-}
-
