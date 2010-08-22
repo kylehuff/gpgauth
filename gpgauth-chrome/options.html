@@ -1,6 +1,6 @@
 <html>
 <head>
-<title></title>
+<title>gpgAuth Chrome Options</title>
 <style>
 #header_image {
     height: 74px;
@@ -8,31 +8,46 @@
     padding-right: 6px;
 }
 
-#keylist {
-    height: 450px;
-    overflow-y: scroll;
-}
-.keylistTable {
+div.tableContainer table {
+    font: 12px Verdana, Arial, Helvetica, sans-serif;
     border-spacing: 0;
     border-collapse: collapse;
     padding: 0px;
     border: 1px solid #000;
     width: 100%;
 }
-.keylistTable th {
+
+head:first-child+body thead[class].fixedHeader tr {
+    display: block;
+}
+
+thead.fixedHeader th {
     color: #ffE;
     font-weight:bold;
-    font-size: 16px;
-    padding-left: 6px;
+    font-size: 12px;
     background: #333333 url('images/section_header.png') repeat-x;
-    min-width: 250px;
     text-align: left;
+    width: 200px;
 }
-.keylistTable tr {
-    width: 148px;
+
+thead.fixedHeader a, thead.fixedHeader a:link, thead.fixedHeader a:visited {
+    color: #FFF;
+    display: block;
+    text-decoration: none;
+    width: 100%
+}
+
+head:first-child+body tbody[class].scrollContent {
+    display: block;
+    height: 262px;
+    overflow: auto;
+    width: 100%
+}
+
+tbody.scrollContent tr {
     border: solid 1px #000;
     background-color: #dddddd;
-    padding:2px 6px 2px 6px;
+    padding:2px 0px 2px 0px;
     margin: 0px;
     color: #000;
     cursor: pointer;
@@ -41,74 +56,95 @@
     background-image: url('images/menumask.png');
     text-align: left;
 }
-.keylistTable a {
-    text-decoration: none;
-}
-.keylistTable tr a:visited {
-}
-.keylistTable tr:hover a:visited {
-    color: #000;
-    font-weight: bold;
-}
-.keylistTable tr:hover {
+
+tbody.scrollContent tr:hover {
     background-color: #7dc40d;
     color: #000;
     font-weight:bold;
 }
-.keylistTable td {
+
+tbody.scrollContent tr.invalid-key {
+    text-decoration: line-through;
+    background: none;
+    background-color: #f20000;
+}
+
+tbody.scrollContent td {
     border-top: 1px solid #000;
     vertical-align: top;
     font: 12px Verdana, Arial, Helvetica, sans-serif;
     padding-left: 8px;
     color: inherit;
     font-weight:inherit;
-    min-width: 150px;
+    font-size:inherit;
+    width: 206px;
 }
-.keylistTable td:hover {
+
+tbody.scrollContent td:hover {
   border-left: 1px solid #6cb30c;
   border-right: 1px solid #6cb30c;
 }
-.keylistTable .nolink {
+
+#publicKey_body td {
+    border-top: 1px solid #000;
+    vertical-align: top;
+    font: 12px Verdana, Arial, Helvetica, sans-serif;
+    padding-left: 8px;
+    color: inherit;
+    font-weight:inherit;
+}
+
+#publicKey_body td:hover {
+  border-left: 1px solid #6cb30c;
+  border-right: 1px solid #6cb30c;
+}
+
+#publicKey_body .nolink {
     cursor: default;
 }
 
-.keylistTable tr.primary_key {
-    background-color: #333;
+#publicKey_body tr.primary_key {
     color: #fff;
-    background: #333333 url('images/section_header.png') repeat-x;
+    background: #000 url('images/menumask.png') repeat-x;
     font-weight: bold;
+    cursor: default;
 }
 
-.keylistTable tr.subtr th {
-    background: none;
-    background-color: #333;
-    font-size: 10px;
-    padding-left: 16px;
-    min-width: 250px;
-    font-weight: normal;
-    text-align: left;
-}
-
-.keylistTable tr.subtr td {
+#publicKey_body tr.subtr td {
     padding-left: 16px;
 }
 
-.keylistTable tr.disabled {
+#publicKey_body tr.invalid-key {
     text-decoration: line-through;
     background: none;
     background-color: #f00;
     color: #000;
 }
 
-.keylistTable tr.key_spacer {
+.scrollContent tr.key_spacer {
     background: none;
-    height: 20px;
+    padding: 0;
+    cursor: default;
 }
-.keylistTable tr.key_spacer :hover {
+
+.scrollContent tr.key_spacer:hover {
     background: none;
-}
-.keylistTable tr.key_spacer td :hover {
     border: none;
+}
+.scrollContent tr.key_spacer td:hover {
+    background: none;
+    border: none;
+}
+
+#publicKey_body tr.signature {
+    background-color: #FF0;
+}
+
+.scrollContent tr.keyoptions {
+    background-color: #999;
+    background-position: top left;
+    background-repeat: repeat-x;
+    background-image: url("images/menumask.png");
 }
 
 </style>
@@ -116,61 +152,205 @@
 <body>
 
 <div id="header"><img src="images/gpgauth-128.png" id="header_image"/><h1 style="display: inline; top: -18px; position: relative;">gpgAuth Options</h1></div>
-<div id="keylist"></div>
-<br/><br/>
-<div id="footer">
-  <button id="save-button" style="font-weight:bold" onclick="save()">Save</button>
-  <button onclick="init()">Cancel</button>
+<div id="keyprefs">
+    Your Keys: <br/>
+    <div border="0" cellpadding="0" cellspacing="0" width="100%" class="tableContainer">
+        <table name="privateKeys" class="scrollTable">
+            <thead class="fixedHeader" id="fixedHeader"> 
+                <tr>
+                    <th style='width:360px;'><a href="#">UID</a></th>
+                    <th style='width:364px;'><a href="#">Email</a></th>
+                    <th style='width:104px;'><a href="#">Trust</a></th>
+                    <th style='width:80px;'><a href="#">Size</a></th>
+                    <th style='width:124px;'><a href="#">Expiration</a></th>
+                    <th style='padding-right:20px;'><a href="#">ID</a></th>
+                </tr>
+            </thead>
+            <tbody id="privateKey_body" class="scrollContent">
+            </tbody>
+        </table>
+    </div>
 </div>
+<br/><br/>
+<div id="keylist">
+    Other Keys: <br/>
+    <div border="0" cellpadding="0" cellspacing="0" width="100%" class="tableContainer">
+        <table name="publicKeys" class="scrollTable">
+            <thead class="fixedHeader" id="fixedHeader"> 
+                <tr>
+                    <th style='width:360px;'><a href="#">UID</a></th>
+                    <th style='width:220px;'><a href="#">Signed</a></th>
+                    <th style='width:170px;'><a href="#">Trust</a></th>
+                    <th style='padding-right:20px;'><a href="#">ID</a></th>
+                </tr>
+            </thead>
+            <tbody id="publicKey_body" class="scrollContent">
+            </tbody>
+        </table>
+    </div>
+</div>
+<br/><br/>
 <script>
+
+    ext = chrome.extension.getBackgroundPage();
+    var pkeylist = JSON.parse(ext.plugin.getPrivateKeyList());
+    if (!pkeylist) {
+        // if the parsing failed, create an empty keylist
+        pkeylist = {};
+    }
+    enabled_keys = ext.gpgauth_prefs.enabled_keys.get();
+    for (pkeyid in pkeylist) {
+        pkey = JSON.parse(ext.plugin.getDomainKey(pkeyid));
+        pkey_row = document.createElement("tr");
+        expiry = (pkey[pkeyid].subkeys[0].expires == 0) ? 'Never' : new Date(pkey[pkeyid].subkeys[0].expires * 1000).toJSON();
+        if (pkey[pkeyid].subkeys[0].expires > 0) {
+            expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(pkey[pkeyid].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
+        }
+        keystatus = 0;
+        for (subkey in pkey[pkeyid].subkeys) {
+            keystatus += parseInt(pkey[pkeyid].subkeys[subkey].disabled);
+            keystatus += parseInt(pkey[pkeyid].subkeys[subkey].expired);
+            keystatus += parseInt(pkey[pkeyid].subkeys[subkey].invalid);
+            keystatus += parseInt(pkey[pkeyid].subkeys[subkey].revoked);
+        }
+        keystatus += parseInt(pkey[pkeyid].disabled);
+        keystatus += parseInt(pkey[pkeyid].expired);
+        keystatus += parseInt(pkey[pkeyid].invalid);
+        keystatus += parseInt(pkey[pkeyid].revoked);
+        pkey[pkeyid].keystatus = keystatus;
+        keyclass = (keystatus != 0) ? "invalid-key" : "key";
+        created = new Date(pkey[pkeyid].subkeys[0].created * 1000).toJSON().substring(0, 10);
+        pkey_row.setAttribute("class", keyclass);
+        pkey_row.innerHTML = "<td style='width:380px;'>" + pkey[pkeyid].uids[0].uid + "</td>" +
+            "<td style='width:380px;'>" + pkey[pkeyid].uids[0].email + "</td>" +
+            "<td style='width:100px;'>" + pkey[pkeyid].uids[0].validity + "</td>" +
+            "<td style='width:80px;'>" + pkey[pkeyid].subkeys[0].size + "</td>" +
+            "<td style='width:120px; min-width:120px;'>" + expiry + "</td>" +
+            "<td>" + pkeyid + "</td>";
+        document.getElementById("privateKey_body").appendChild(pkey_row);
+        /* begin private key options */
+        keyopt_row = document.createElement("tr");
+        keyopt_row.setAttribute("class", "keyoptions");
+        newTD = document.createElement("td");
+        selected = (window.localStorage.getItem('default_key') != pkeyid) ? "" : " checked";
+        newTD.innerHTML = "Default for gpgAuth: <input type=radio name='default_key' value='" + 
+            pkeyid + "'" + selected + " onchange='ext.gpgauth_prefs.default_key.set(this.value)'>";
+        newTD.setAttribute('onclick', 'this.getElementsByTagName("input")[0].checked = true; this.getElementsByTagName("input")[0].onchange();');
+        keyopt_row.appendChild(newTD);
+        newTD = document.createElement("td");
+        enabled = (pkeyid in enabled_keys) ? " checked" : "";
+        newTD.innerHTML = "Enabled for gpgAuth: <input style='z-index:100;' type='checkbox'" + enabled + 
+            " onchange=\"(this.checked) ? ext.gpgauth_prefs.enabled_keys.add('" + pkeyid + "') : ext.gpgauth_prefs.enabled_keys.remove('" + pkeyid + "');\">";
+        newTD.setAttribute('onclick', 'this.getElementsByTagName("input")[0].checked = (this.getElementsByTagName("input")[0].checked) ? false : true; this.getElementsByTagName("input")[0].onchange()');
+        newTD.setAttribute('colspan', 100);
+        keyopt_row.appendChild(newTD);
+        document.getElementById("privateKey_body").appendChild(keyopt_row);
+        newTR = document.createElement('tr');
+        newTR.className = 'key_spacer';
+        newTR.setAttribute('style', 'width: 100%; height:4px; padding: 0;');
+        newTR.innerHTML = '<td colspan=100 style="height:4px;padding:0;"></td>';
+        document.getElementById("privateKey_body").appendChild(newTR);
+    }
+    
+
+
+
+    publicKey_body = document.getElementById('publicKey_body');
     ext = chrome.extension.getBackgroundPage();
     var keylist = JSON.parse(ext.plugin.getKeyList());
     if (!keylist) {
         // if the parsing failed, create an empty keylist
         keylist = {};
     }
-    keylistElement = document.getElementById('keylist');
-    keylistTable = document.createElement('table');
-    keylistTable.className = 'keylistTable';
     var prev_key = null;
     for (key in keylist){
+        if (key in pkeylist) {
+            continue;
+        }
         if (prev_key && prev_key != key && keylist[prev_key].uids){
             newTR = document.createElement('tr');
             newTR.className = 'key_spacer';
             newTR.innerHTML = '<td>&nbsp;</td>';
-            keylistTable.appendChild(newTR);
+            publicKey_body.appendChild(newTR);
         }
         prev_key = key;
         newTR = document.createElement('tr');
         if (parseInt(keylist[key].disabled) == 1)
             newTR.className = 'disabled';
         if (parseInt(keylist[key].expired) == 1)
-            newTR.className = 'disabled';
+            newTR.className = 'invalid-key';
+        if (parseInt(keylist[key].invalid) == 1)
+            newTR.className = 'invalid-key';
         newTR.className += ' primary_key';
         newTD = document.createElement('td');
         newTD.innerText = keylist[key].name;
+        newTD.setAttribute('colspan', 3);
         newTR.appendChild(newTD);
         newTD = document.createElement('td');
         newTD.innerText = key.substr(-8);
         newTR.appendChild(newTD);
-        keylistTable.appendChild(newTR);
-        // get the length of the object
+        publicKey_body.appendChild(newTR);
         keylist[key].nuids = 0;
         for (uid in keylist[key].uids) {
             keylist[key].nuids += 1;
         }
         for (uid in keylist[key].uids) {
             newTR = document.createElement('tr');
-            newTR.className = 'subtr';
+            if (parseInt(keylist[key].expired) == 1)
+                newTR.className = 'invalid-key';
+            newTR.className += ' subtr';
             newTD = document.createElement('td');
-            newTD.innerText = 'User id: ' + uid;
+            newTD.setAttribute('style', 'width:340px;min-width:340px;');
+            newTD.innerText = keylist[key].uids[uid].uid;
+            newTR.appendChild(newTD);
+            newTD = document.createElement('td');
+            newTD.setAttribute('style', 'width:80px;');
+            signed = 0;
+            nd_trust = false;
+            publicKey_body.appendChild(newTR);
+            for (sig in keylist[key].uids[uid].signatures) {
+                sig_keyid = keylist[key].uids[uid].signatures[sig]
+                if (sig_keyid in keylist || nd_trust) {
+                    if (sig_keyid in pkeylist) {
+                        signed = 1;
+                    }
+                    sign_tr = document.createElement('tr');
+                    sign_tr.setAttribute('class', 'signature');
+                    sign_tr_id = Math.random().toString().substring(3);
+                    sign_tr.setAttribute('id', sign_tr_id);
+//                    sign_tr.setAttribute('style', 'display:none;');
+//                    newTD.setAttribute('onClick', "document.getElementById('" + sign_tr_id + "').style.display = (document.getElementById('" + sign_tr_id + "').style.display == 'none') ? '' : 'none';");
+                    //console.log('keyid ' + keylist[key].name + ' sig_keyid ' + sig_keyid);
+                    sign_tr.innerHTML = "<td style='border:none;'>" +
+                        "<img style='height:14px;' src='images/badges/stock_signature.png'> " + 
+                        keylist[sig_keyid].name + "</td><td>" + sig_keyid + "</td>";
+                    publicKey_body.appendChild(sign_tr);
+                }
+            }
+            newTD.innerText = (signed) ? "Yes" : "No";
+            newTR.appendChild(newTD);
+            newTD = document.createElement('td');
+            newTD.setAttribute('style', 'width:150px;');
+            GAUTrust = -100;
+            for (privateKeyId in pkeylist) {
+                if (!pkeylist[privateKeyId].keystatus){
+                    pkey_status = 0;
+                    pkey_status += parseInt(keylist[key].expired)
+                    pkey_status += parseInt(keylist[key].disabled)
+                    pkey_status += parseInt(keylist[key].invalid)
+                    pkey_status += parseInt(keylist[key].revoked)
+                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 2) ? '?' : ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, keylist[key].uids[uid].uid, privateKeyId);
+                    if (GAUTrust == '?' || GAUTrust > -1) {
+                        break;
+                    }
+                }
+            }
+            newTD.innerText = 'Trust: ' + keylist[key].uids[uid].validity + ' (' + GAUTrust + ')';
             newTR.appendChild(newTD);
             newTD = document.createElement('td');
             newTD.innerText = keylist[key].uids[uid].email;
             newTR.appendChild(newTD);
-            keylistTable.appendChild(newTR);
         }
     }
-    keylistElement.appendChild(keylistTable);
 </script>
 </html>

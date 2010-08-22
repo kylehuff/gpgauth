@@ -1,6 +1,6 @@
 /* Constants */
-GPGAUTH_VERSION = "v1.2.1";
-CLIENT_VERSION = "v1.2.1";
+GPGAUTH_VERSION = "v1.3.0";
+CLIENT_VERSION = "v1.3.0";
 
 // HTTP Headers
 SERVER_GPGAUTH_VERSION = 'X-GPGAuth-Version'        /* HTTP Header that reports the gpgAuth server implementation version
@@ -103,11 +103,14 @@ var gpgAuth = {
     },
 
     serverResult: function(response) {
+        if (!response.result['valid']) {
+            console.log(response.result);
+        }
         if (response.result['server_validated'] == true) {
             x = document.createElement('pre');
             console.log(this.gpgauth_headers);
-            document.body.appendChild(x); x.innerText = response.result.cached;
-            if (this.gpgauth_headers['X-GPGAuth-Progress'] != 'stage2'){
+            document.body.appendChild(x); x.innerText = "cached server validation: " + response.result.cached;
+            if (this.gpgauth_headers['X-GPGAuth-Progress'] == 'stage0'){
                 console.log("calling doUserLogin");
                 chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain':document.domain, 
                         'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL]}},
@@ -147,194 +150,6 @@ var gpgAuth = {
         gpgAuth.initialized = false;
         gpgAuth.status_window.update( "gpgAuth shutting down....", show=false );
         window.removeEventListener( "gpg_auth:login", this.login, false, true );
-    },
-
-
-    /*
-    Function: login
-    This function gets called by the "gpg:login" event that is emitted from
-    a gpgAuth enabled website. Events not caught by the webpage itself are
-    bubbled up to extensions in Firefox.
-    */
-    logina: function( event ) {
-        var error_message = false;
-        var details = false;
-        // Get the current domain name
-        if ( document.domain ) {
-            gpgAuth.domain = document.domain;
-        } else if ( document.location.host ) {
-            gpgAuth.domain = document.location.host;
-        } else {
-            gpgAuth.domain = "Not Supported";
-        }
-        alert(document.request);
-        // Add the domain to an array for further reference and add default values.
-        if ( ! gpgAuth.gpg_elements[ gpgAuth.domain ] ) {
-            gpgAuth.gpg_elements[ gpgAuth.domain ] = new Array();
-        }
-
-        // Pointers to gpgAuth elements in the document
-        // The Server Token Element - A place-holder for a token encrypted to the website public key
-        var STK_ELM = document.getElementById( "gpg_auth:server_token" );
-        // Server Token Response Element - A place-holder for the server to put the decrypted version of the STK_ELM contents
-        var STK_RES_ELM = document.getElementById( "gpg_auth:server_response_token" );
-        // User Token Element - A place-holder for the server to put an encrypted token, 
-        // encrypted to the users public key. (Also where the user puts the decrypted version)
-        var UTK_ELM = document.getElementById( "gpg_auth:user_token" );
-
-        gpgAuth.status_window.update( "gpgAuth:login called for domain " + gpgAuth.domain );
-        // If the STK_ELM (Server Token Element) exists and we have not yet been requested our user token, lets create a token.
-        if ( STK_ELM && ! UTK_ELM ) {
-            var server_tests = gpgAuth.doServerTests( STK_ELM, UTK_ELM );
-            if ( ! server_tests ) {
-                gpgAuth.status_window.update( "... server " + gpgAuth.domain + " has failed the initial validity tests.." );
-                return false;
-            } else {
-                gpgAuth.status_window.update( "... server " + gpgAuth.domain + " has succeeded the initial validity tests or the tests results have been overridden by the user.." );
-                return true;
-            }
-        } else if ( UTK_ELM && ! gpgAuth.gpg_elements[ gpgAuth.domain ][ 'STK_ERROR' ] ) {
-            var server_token_tests = gpgAuth.doServerTokenTests( STK_ELM, STK_RES_ELM, UTK_ELM );
-            if ( ! server_token_tests ) {
-                return false;
-            } else {
-                gpgAuth.decryptUserToken();
-            }
-        }
-    },
-
-
-    /*
-    Function: decryptUserToken
-    This function is called to decrypt the data sent by the server that is encrypted with the users public key
-    */
-    decryptUserToken: function( e ) {
-        var timestamp = new Date().getTime();
-        var ms = timestamp - gpgAuth.gpg_elements[ gpgAuth.domain ][ 'TIME_STAMP' ]; // Get miliseconds since login was pressed
-        user_token = document.getElementById( "gpg_auth:user_token" ).innerHTML;
-        // Clear and recreate the array
-        // Check to see if we received a token to decrypt, and make sure it did not take more than 3 minutes to get it.
-        if ( user_token && ms < 300000 ) {
-            gpgAuth.status_window.update( "... decrypting the token" );
-            // Attempt to decrypt the token provided by the Server.
-            var result = FireGPG.decrypt( true, user_token );
-            if ( result.result == RESULT_SUCCESS ) {
-                // Check to see if the token was signed, and verify there is a keyid for the sign.
-                if ( result.signresultkeyid && result.signresultkeyid.length > 8 ) {
-                    // The key is long format - get the short version of the key (Last 8 Chars)
-                    var signature_key = result.signresultkeyid.substring( result.signresultkeyid.length - 8 , result.signresultkeyid.length );
-                } else if ( result.signresultkeyid ) {
-                    // The keyid is already in short-form.
-                    signature_key = result.signresultkeyid;
-                } else {
-                    // There was no keyid found.
-                    signature_key = "none";
-                }
-                if ( ! gpgAuth.gpg_elements[ gpgAuth.domain ][ 'USE_UNTRUSTED' ] ) {
-                    // Check to see if the signing keyid is a part of the key associated witht he domain.
-                    gpgAuth.status_window.update( "... checking signature of token" );
-                    if ( signature_key != gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_PRIKEY_ID' ] && signature_key != gpgAuth.gpg_elements[ gpgAuth.domain ][ 'SERVER_SUBKEY_ID' ] ) {
-                        gpgAuth.status_window.update( "... this token was not signed by a primary key or any subkey associated with this domain" );
-                        alert( "The token provided by the server was not signed by any primary or subkey associated with this domain; Aborting." );
-                        return false;
-                    }
-                    // Determine the age of the signature - if the signature is over 3minutes aged it is invalid. (possible replay)
-                    var signature_age = timestamp - Date.parse(result.signresultdate);
-                    gpgAuth.status_window.update( "... verifying age of signature" );
-                    if ( signature_age > 300000 ) {
-                        gpgAuth.status_window.update( "... this token was signed foo far in the past." );
-                        alert( "The server has signed this token too far in the past; Aborting.\n " );
-                        return false;
-                    }
-                } else {
-                    gpgAuth.status_window.update( "... skipping check of token signature by user request" );
-                }
-                // Create a regular expression to verify that the decrypted data matches the {pre,post}-amble, so we don't send back sensitive data.
-                var random_re = new RegExp( "^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i" )
-                gpgAuth.status_window.update( "... verifying format of token" );
-                if ( random_re.test( result.decrypted ) ) {
-                    gpgAuth.status_window.update( "... token matches the required format" );
-                    gpgAuth.status_window.update( "... testing token contents" );
-                    var token_exec = random_re.exec( result.decrypted );
-                    if ( token_exec[4] == token_exec[5].length ){
-                        gpgAuth.status_window.update( "... token contents matches the length field" );
-                    } else {
-                        gpgAuth.status_window.update( "... token contents do not match the length field" );
-                        alert( "The server did not provide a token in the required format; Aborting." );
-                        return false;
-                    }
-                    if ( token_exec[2] == gpgAuth._version.substring( 0, 4 ) ) {
-                        gpgAuth.status_window.update( "... this server gpgAuth implementation version is compatible witht this client" );
-                        gpgAuth.status_window.update( "... client version: " + gpgAuth._version + " server version: " + token_exec[1] );
-                    } else {
-                        gpgAuth.status_window.update( "... this server gpgAuth implementation version is not compatible with this client" );
-                        gpgAuth.status_window.update( "... the server is using major/minor version " + token_exec[2] + ", version " + gpgAuth._version.substring( 0, 4 ) + " is required" );
-                        gpgAuth.status_window.update( "... the full server implementation version is " + token_exec[1] );
-                        alert( "The server version is not compatible with the version of the gpgAuth clientt; Aborting." );
-                        return false;
-                    }
-                    gpgAuth.status_window.update( "... returning the decryted token to the form field" );
-                    // Insert the decrypted result into the proper element and submit the login form.
-                    document.getElementById( "gpg_auth:user_token" ).innerHTML = result.decrypted;
-                    gpgAuth.status_window.update( "... submitting the form" );
-                    if ( gpgAuth.gpgauth_statuswindow_enabled ) {
-                        gpgAuth.status_window._panel.hidePopup();
-                        gpgAuth.status_window._panel.hidden = true;
-                    }
-                    document.getElementById( "gpg_auth:form" ).submit();
-                }  else {
-                    gpgAuth.status_window.update( "... the contents of the token provided does not match the defined format." );
-                    alert( "The server did not provide a token compatible with this version of FireGPG; Aborting." );
-                    return false;
-                }
-            } else {
-                gpgAuth.status_window.update( "... unable to decrypt this token" );
-                return false;
-            }
-        } else {
-            gpgAuth.status_window.update( "... the server did not provide an encrypted token or a timeout has occurred" );
-            alert( "The server did not provide an encrypted token for us to decrypt or a timeout has occurred; Aborting" );
-            return false;
-        }
-    },
-
-
-    /*
-    Function: generate_random_token
-    This is just a random string generator. It generates a random string that gets encrypted
-    with the servers Public Key and sent to the server for decryption.
-    */
-    generate_random_token: function( e ) {
-        var validchars = "";
-        var startvalid = "";
-
-        var minsize, maxsize, count, actualsize, random_value;
-        minsize = parseInt( 60 );
-        maxsize = parseInt( 100 );
-        startvalid = "";
-        validchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        actualsize = Math.floor( Math.random() * ( maxsize - minsize + 1 ) ) + minsize;
-        random_value = startvalid.charAt( Math.floor( Math.random() * startvalid.length ) );
-        for (count = 1; count < actualsize; count++){
-            random_value += validchars.charAt( Math.floor( Math.random() * validchars.length ) );
-        }
-        return random_value;
-    },
-
-    copyToClipboard: function( text ) {
-        var unicodestring = Components.classes["@mozilla.org/supports-string;1"]
-            .createInstance(Components.interfaces.nsISupportsString);
-        var xferable = Components.classes["@mozilla.org/widget/transferable;1"]
-            .createInstance(Components.interfaces.nsITransferable);
-        xferable.addDataFlavor("text/unicode");
-        unicodestring.data = text;
-        xferable.setTransferData("text/unicode", unicodestring, text.length * 2);
-
-        var clipboard = Components.classes["@mozilla.org/widget/clipboard;1"]
-            .getService(Components.interfaces.nsIClipboard);
-
-        clipboard.setData(xferable, null,
-            Components.interfaces.nsIClipboard.kGlobalClipboard);
     },
 
     gpgauthDialog: function ( message_type, error_message, details, check_text ) {

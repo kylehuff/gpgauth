@@ -1,6 +1,64 @@
 <html>
 <head>
 <script>
+/* setup the preferences object
+    this is probably overkill for chrome, but added as generic object
+        for use in extensions for other browsers.
+*/
+var gpgauth_prefs = {
+    enabled_keys: {
+        get: function() {
+            keys_tmp = {};
+            if (window.localStorage.getItem('enabled_keys')) {
+                store_value = window.localStorage.getItem('enabled_keys').split(',');
+                for (key in store_value) {
+                    keys_tmp[store_value[key]] = 1;
+                }
+            }
+            return keys_tmp;
+        },
+        add: function(keyid) {
+            keys_arr = {};
+            for (key in this.get()) {
+                keys_arr[key] = 1;
+            }
+            keys_arr[keyid] = 1;
+            keys_tmp = [];
+            for (key in keys_arr) {
+                keys_tmp[keys_tmp.length] = key;
+            }
+            window.localStorage.setItem('enabled_keys', keys_tmp);
+        },
+        remove: function(keyid) {
+            keys_arr = {};
+            for (key in this.get()) {
+                if (key != keyid) {
+                    keys_arr[key] = 1;
+                }
+            }
+            keys_tmp = [];
+            for (key in keys_arr) {
+                keys_tmp[keys_tmp.length] = key;
+            }
+            window.localStorage.setItem('enabled_keys', keys_tmp);
+        },
+            
+    },
+    default_key: {
+        get: function() {
+            return window.localStorage.getItem('default_key');
+        },
+        set: function(keyid) {
+            //window.localStorage.clear('default_key');
+            return window.localStorage.setItem('default_key', keyid);
+        },
+        clear: function(keyid) {
+            return window.localStorage.clear('default_key');
+        },
+    },
+};
+/* end prefs setup */
+
 var gpgauthBackground = {
     // Called when a message is passed.
     onRequest: function(request, sender, sendResponse) {
@@ -11,33 +69,31 @@ var gpgauthBackground = {
             chrome.pageAction.show(sender.tab.id);
             chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup.html"});
         }
-        if (request.msg == 'getDomainKey') {
-            domain_keylist = plugin.getDomainKey(request.params['domain']);
-            if (request.params['verify']){
-                response = gpgauthBackground.verifyDomainKey(request.params['domain'], JSON.parse(domain_keylist));
-            } else {
-                response = JSON.parse(domain_keylist);
-            }
-        }
         if (request.msg == 'doServerTests') {
             domain_keylist = plugin.getDomainKey(request.params['domain']);
-            response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
-            if (response['server_validated'] == true) {
-                chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
-                gpgauthBackground.pulses[sender.tab.id] = {
-                    'timer': null,
-                    'icons': ['server_verified.png', 'default.png'],
-                    'current_icon': 1,
-                    'counter': 10
+            if (!domain_keylist) {
+                response = {'valid': false, 'error': 'Server key not found' };
+            } else {
+                response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
+                if (response['server_validated'] == true) {
+                    chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
+                    gpgauthBackground.pulses[sender.tab.id] = {
+                        'timer': null,
+                        'icons': ['server_verified.png', 'default.png'],
+                        'current_icon': 1,
+                        'counter': 10
+                    }
+                    gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+                    response = {'server_validated': true, 'cached': response['cached']};
+                } else {
+                    console.log ("err was: " + response);
                 }
-                gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
-                response = {'server_validated': true, 'cached': response['cached']};
             }
         }
         if (request.msg == 'doUserLogin') {
             token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url']);
             if (token_from_server){
-                response = {'valid': true, 'decrypted_token': token_from_server[0], 'keyid': token_from_server[1], 'login_in_progress': new Date().getTime() }
+                response = {'valid': true, 'decrypted_token': token_from_server[0], 'keyid': token_from_server[1] }
                 //this.gpg_elements[document.domain]['login_in_progress'] = new Date().getTime();
             } else {
                 response = {'valid': false };
@@ -55,8 +111,7 @@ var gpgauthBackground = {
     getUserToken: function(domain, login_url) {
         var response_headers = null;
         var http = new XMLHttpRequest();
-        //DAE1 FF03 FBFC 8A02 0374  939F 0DF9 C95C 3BE1 A023
-        var keyid = "0DF9C95C3BE1A023";
+        var keyid = gpgauth_prefs.default_key.get();
         var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
         var user_auth_url = 'http://' + domain + '/' + login_url;
         http.open("POST", user_auth_url, false);
@@ -99,7 +154,7 @@ var gpgauthBackground = {
     */
     verifyDomainKey: function(domain, domain_keylist){
         // first get a list of selected private keys for the user -
-        private_keylist = ["0DF9C95C3BE1A023", "875A2CEB042FBCDA", "E5F3F032F343F282"];
+        private_keylist = gpgauth_prefs.enabled_keys.get();
         
         /* for each domain_key returned by getDomainKey, and each user selected
             private key, validate via the NPAPI plugin and return the first
@@ -109,6 +164,7 @@ var gpgauthBackground = {
         */
         usable_domain_keyid = null;
         usable_private_keyid = null;
+        usable_domain_key_trust = null;
         trust = -1;
         for (domain_keyid in domain_keylist){
             for (private_keyid in private_keylist){
@@ -144,18 +200,18 @@ var gpgauthBackground = {
                         preference of "advnaced.trust_model")
                 */
                 console.log("testing domain key: " + domain_keyid + 
-                    " from domain: " + domain + " against private_key: " + private_keylist[private_keyid]);
+                    " from domain: " + domain + " against private_key: " + private_keyid);
                 trust = plugin.verifyDomainKey(
                     domain,
                     domain_keyid,
-                    private_keylist[private_keyid]
+                    private_keyid
                 );
                 if (trust > -1){
                     // decide here if the returned trust value matches the users defined
                     //  preferences, if so, break out, otherwise continue searching.
-                    console.log("usable domain key: " + domain_keyid + " with a trust level of " + trust + " because signed with " + private_keylist[private_keyid]);
+                    console.log("usable domain key: " + domain_keyid + " with a trust level of " + trust + " because signed with " + private_keyid);
                     usable_domain_keyid = domain_keyid;
-                    usable_private_keyid = private_keylist[private_keyid];
+                    usable_private_keyid = private_keyid;
                     usable_domain_key_trust = trust;
                     if (trust == 0)
                         break;
@@ -185,7 +241,7 @@ var gpgauthBackground = {
             this.gpg_elements[domain]['user_key'] = key_results['user_key'];
             this.gpg_elements[domain]['cached'] = false;
             console.log(key_results);
-            if (parseInt(key_results['domain_key_trust']) < 0) {
+            if (parseInt(key_results['domain_key_trust']) < 0 || key_results['domain_key_trust'] == null) {
                 return "failed trust!";
             } else {
                 console.log ("keyresult was " + key_results['domain_key_trust'] );

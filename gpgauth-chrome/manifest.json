@@ -26,6 +26,7 @@
     "default_popup": "popup.html"    // optional
   },
   "plugins": [
-    { "path": "plugins/Linux_x86-gcc3/npgpgAuthPlugin.so", "public": false }
+    { "path": "plugins/Linux_x86-gcc3/npgpgAuthPlugin.so", "public": false },
+    { "path": "plugins/WINNT_x86-msvc/npgpgAuthPlugin.dll", "public": false }
   ]
 }
