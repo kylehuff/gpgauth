@@ -211,7 +211,7 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
 
 
 .private_keylist {
-    width:93%;
+    width:100%;
 }
 .invalid-key .ui-accordion-header, .disabled .ui-accordion-header {
     text-decoration: line-through;
@@ -323,7 +323,7 @@ span.trust .ui-button-text {
                 </div>
                 <div class="trust-level-desc" id='trust-3'>
                     <span class="trust-level">3</span>
-                    <span class="trust-desc">The UID matching the domain may be signed by one of your ultimately trusted keys that has expired</span>
+                    <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust - it is okay if that key has expired</span>
                 </div>
                 <div class="trust-level-desc" id='trust-4'>
                     <span class="trust-level">4</span>
@@ -397,7 +397,7 @@ span.trust .ui-button-text {
         enabled = (key in enabled_keys) ? " checked" : "";
         status_text = (enabled) ? "Enabled" : "Disabled";
         default_key = (key == window.ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
-        keyobj.innerHTML = "<h3 class='private_keylist'><a href='#'><span>" + keylist[key].name + "</span><span class='trust' style='right: -100px;top:-6px;'>" +
+        keyobj.innerHTML = "<h3 class='private_keylist'><a href='#'><span>" + keylist[key].name + "</span><span class='trust' style='right: -10px;top:-6px;'>" +
         "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + 
             " onclick=\"if ('" + key + "' == window.ext.gpgauth_prefs.default_key.get()){ $(this).next()[0].className += ' ui-state-active'; return false }; (this.checked) ? window.ext.gpgauth_prefs.enabled_keys.add('" + key + "') : window.ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' id='default-" + key + "' " + default_key + "><label class='default-check' style='z-index: 0; margin-left: -4px;' for='default-" + key + "'>Set as default</label>" +
             "</span></a></h3>";
