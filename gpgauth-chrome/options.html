@@ -6,16 +6,47 @@
 <script type="text/javascript" src="jquery/js/jquery-ui-1.8.4.custom.min.js"></script>
 <script type="text/javascript">
 $(function(){
+    var ext = chrome.extension.getBackgroundPage();
+    $('#trust-level-sel').ready(function(e){
+        trust_level = window.ext.gpgauth_prefs.trust_level.get();
+        $(this).find('#trust-list').children().eq(trust_level).addClass('selected');
+        $(this).find('#trust-level-desc').children().eq(trust_level).addClass('selected');
+    });
+    $('.level').click(function(e){
+        $(this).parent().find('.selected').removeClass('selected');
+        $(this).addClass('selected');
+        $('#trust-level-desc').children('.selected').removeClass('selected');
+        current_index = $(this).parent().find('span').index(this);
+        $('#trust-level-desc').children().eq(current_index).addClass('selected');
+        window.ext.gpgauth_prefs.trust_level.set(current_index);
+    });
+    $('.trust-level-desc').click(function(e){
+        $(this).parent().find('.selected').removeClass('selected');
+        $(this).addClass('selected');
+        current_index = $(this).parent().find('div').index(this);
+        $('#trust-list').children('.selected').removeClass('selected');
+        $('#trust-list').children().eq(current_index).addClass('selected');
+        window.ext.gpgauth_prefs.trust_level.set(current_index);
+    });
+    $('#enable-gpgauth-check').button({
+        'label': (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true') ? 'Enabled' : 'Disabled'
+        }).click(function(e) {
+            (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true') ? window.ext.gpgauth_prefs.enable_gpgauth.set(false) : ext.gpgauth_prefs.enable_gpgauth.set(true);
+            status = (window.ext.gpgauth_prefs.enable_gpgauth.get() == "true") ? 'Enabled' : 'Disabled'
+            $(this).button('option', 'label', status);
+            this.checked = (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true');
+            $(this).button('refresh');
+        });
+
     refresh_trust = function(e, wait_icon) {
         uidcontainer = e.target.parentNode.parentNode.children[1];
         uidlist = $(uidcontainer).children('[class~=uid]');
-        ext = chrome.extension.getBackgroundPage();
-        var pkeylist = JSON.parse(ext.plugin.getPrivateKeyList());
+        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
         if (!pkeylist) {
             // if the parsing failed, create an empty keylist
             pkeylist = {};
         }
-        var keylist = JSON.parse(ext.plugin.getKeyList());
+        var keylist = JSON.parse(window.ext.plugin.getKeyList());
         if (!keylist) {
             // if the parsing failed, create an empty keylist
             keylist = {};
@@ -31,7 +62,7 @@ $(function(){
                     pkey_status += parseInt(keylist[key].disabled)
                     pkey_status += parseInt(keylist[key].invalid)
                     pkey_status += parseInt(keylist[key].revoked)
-                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 2) ? '?' : ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, keylist[key].uids[uid].uid, privateKeyId);
+                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 2) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, keylist[key].uids[uid].uid, privateKeyId);
                     if (GAUTrust == '?' || GAUTrust > -1) {
                         break;
                     }
@@ -51,19 +82,18 @@ $(function(){
                 autoheight:false, clearStyle:true, active:'.ui-accordion-left',
                 collapsible: true });
     $('#tabs').tabs();
-    $('.enable-check').button().next().next().button( {
+    $('.enable-check').button().next().next().button({
             text: false,
             icons: {
                 primary: 'ui-icon-check'
             }
         })
-        .click( function(e) {
+        .click(function(e) {
             keyid = this.id.substr(-16);
-            ext = chrome.extension.getBackgroundPage();
-            ext.gpgauth_prefs.default_key.set(keyid);
+            window.ext.gpgauth_prefs.default_key.set(keyid);
             enable_element = $('#check-' + this.id.substr(-16))[0];
-            if (keyid in ext.gpgauth_prefs.enabled_keys.get() == false) {
-                ext.gpgauth_prefs.enabled_keys.add(keyid);
+            if (keyid in window.ext.gpgauth_prefs.enabled_keys.get() == false) {
+                window.ext.gpgauth_prefs.enabled_keys.add(keyid);
                 $(enable_element).trigger('click');
                 //$(enable_element).next().trigger('click');
                 $(enable_element).next()[0].innerHTML = $(enable_element).next()[0].innerHTML.replace('Disabled', 'Enabled');
@@ -90,6 +120,96 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
     width: 74px;
     padding-right: 6px;
 }
+#tabs-1 {
+    font-size: 14px;
+}
+
+#trust-level-sel {
+    text-align: center;
+    margin-left: auto; margin-right: auto;
+    font-family:sans-serif;
+    margin-top:5px;
+    background:#fff;
+    display:inline-block;
+    padding:8px;
+    cursor:pointer;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+    -moz-box-shadow:#666 2px 2px 2px;
+    -webkit-box-shadow:#666 2px 2px 2px;
+}
+
+#trust-header {
+    font-size: 16px;
+    text-align: left;
+    float:left;
+    clear: right;
+    color:black;
+    text-shadow:#999 1px 1px 1px;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
+}
+
+#trust-list .selected {
+  color:black !important;
+  font-weight:bold;
+}
+
+#trust-list {
+
+}
+
+#trust-list .level {
+    padding:5px;
+    color:gray;
+}
+
+#trust-list .level:hover {
+    font-weight:bold;
+}
+
+#trust-level-desc {
+    color: #000;
+    text-align: left;
+}
+
+.trust-level-desc {
+    min-height: 30px;
+    border:1px solid #ddd;
+    font-family:sans-serif;
+    color:white;
+    padding:10px;
+    text-shadow:#999 1px 1px 1px;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
+    background: #0078a3  url('images/menumask.png') repeat-x;
+    width: 600px;
+}
+
+.trust-level-desc:hover {
+    background-color: #1E1;
+}
+
+#trust-level-desc .selected {
+    background-color: #F58400;
+}
+
+#trust-level-desc .selected .trust-level {
+    color:#000;
+    text-shadow:#FFE 1px 1px 1px;
+}
+
+.trust-level {
+    font-size:32px;
+    padding-right: 6px;
+    float:left;
+}
+
+.trust-desc {
+    clear:right;
+}
+
+
 .private_keylist {
     width:93%;
 }
@@ -171,7 +291,67 @@ span.trust .ui-button-text {
         <li><a href="#tabs-3">Public Keys</a></li>
     </ul>
     <div id="tabs-1">
-        Phasellus mattis tincidunt nibh. Cras orci urna, blandit id, pretium vel, aliquet ornare, felis. Maecenas scelerisque sem non nis
+        <span id='enable-gpgauth'>Enable gpgAuth: <input type='checkbox' id='enable-gpgauth-check'><label for='enable-gpgauth-check'></label><br/><br/>
+        <div style="width:100%; float:left;text-align: center;">
+        <div id="trust-level-sel">
+            <span id="trust-header">
+                gpgAuth Minimum Trust Level
+            </span><br/><br/>
+            <div id="trust-list">
+                <span class="level"> 0 </span>
+                <span class="level"> 1 </span>
+                <span class="level"> 2 </span>
+                <span class="level"> 3 </span>
+                <span class="level"> 4 </span>
+                <span class="level"> 5 </span>
+                <span class="level"> 6 </span>
+                <span class="level"> 7 </span>
+                <span class="level"> 8 </span>
+            </div>
+            <div id="trust-level-desc">
+                <div class="trust-level-desc" id='trust-0'>
+                    <span class="trust-level">0</span>
+                    <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys (this is the most stringent/secure)</span>
+                </div>
+                <div class="trust-level-desc" id='trust-1'>
+                    <span class="trust-level">1</span>
+                    <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys - it is okay if that key is expired</span>
+                </div>
+                <div class="trust-level-desc" id='trust-2'>
+                    <span class="trust-level">2</span>
+                    <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust</span>
+                </div>
+                <div class="trust-level-desc" id='trust-3'>
+                    <span class="trust-level">3</span>
+                    <span class="trust-desc">The UID matching the domain may be signed by one of your ultimately trusted keys that has expired</span>
+                </div>
+                <div class="trust-level-desc" id='trust-4'>
+                    <span class="trust-level">4</span>
+                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys</span>
+                </div>
+                <div class="trust-level-desc" id='trust-5'>
+                    <span class="trust-level">5</span>
+                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys that has expired</span>
+                </div>
+                <div class="trust-level-desc" id='trust-6'>
+                    <span class="trust-level">6</span>
+                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust</span>
+                </div>
+                <div class="trust-level-desc" id='trust-7'>
+                    <span class="trust-level">7</span>
+                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust that has expired</span>
+                </div>
+                <div class="trust-level-desc" id='trust-8'>
+                    <span class="trust-level">8</span>
+                    <span class="trust-desc">The Primary UID matching the domain may not be signed but otherwise meets the web of trust
+                        requirements (i.e.: signed by a key that you fully trust)</span>
+                </div>
+
+            </div>
+        </div>
+        </div>
+        <div style="clear:both">&nbsp;</div>
+
     </div>
     <div id="tabs-2">
         <div id="private_keylist">
@@ -184,21 +364,23 @@ span.trust .ui-button-text {
         </div>
     </div>
 <script>
+    var ext = chrome.extension.getBackgroundPage();
+    $('#enable-gpgauth-check')[0].checked = 
+        (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true');
 
-    ext = chrome.extension.getBackgroundPage();
-    var pkeylist = JSON.parse(ext.plugin.getPrivateKeyList());
+    var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
     if (!pkeylist) {
         // if the parsing failed, create an empty keylist
         pkeylist = {};
     }
 
-    var keylist = JSON.parse(ext.plugin.getKeyList());
+    var keylist = JSON.parse(window.ext.plugin.getKeyList());
     if (!keylist) {
         // if the parsing failed, create an empty keylist
         keylist = {};
     }
 
-    enabled_keys = ext.gpgauth_prefs.enabled_keys.get();
+    enabled_keys = window.ext.gpgauth_prefs.enabled_keys.get();
 
     private_keylist = document.getElementById('private_keylist');    
     
@@ -214,10 +396,10 @@ span.trust .ui-button-text {
         keyobj.className += ' primary_key';
         enabled = (key in enabled_keys) ? " checked" : "";
         status_text = (enabled) ? "Enabled" : "Disabled";
-        default_key = (key == ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
+        default_key = (key == window.ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
         keyobj.innerHTML = "<h3 class='private_keylist'><a href='#'><span>" + keylist[key].name + "</span><span class='trust' style='right: -100px;top:-6px;'>" +
         "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + 
-            " onclick=\"if ('" + key + "' == ext.gpgauth_prefs.default_key.get()){ $(this).next()[0].className += ' ui-state-active'; return false }; (this.checked) ? ext.gpgauth_prefs.enabled_keys.add('" + key + "') : ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' id='default-" + key + "' " + default_key + "><label class='default-check' style='z-index: 0; margin-left: -4px;' for='default-" + key + "'>Set as default</label>" +
+            " onclick=\"if ('" + key + "' == window.ext.gpgauth_prefs.default_key.get()){ $(this).next()[0].className += ' ui-state-active'; return false }; (this.checked) ? window.ext.gpgauth_prefs.enabled_keys.add('" + key + "') : window.ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' id='default-" + key + "' " + default_key + "><label class='default-check' style='z-index: 0; margin-left: -4px;' for='default-" + key + "'>Set as default</label>" +
             "</span></a></h3>";
         private_keylist.appendChild(keyobj);
         keylist[key].nuids = 0;

@@ -6,6 +6,29 @@
         for use in extensions for other browsers.
 */
 var gpgauth_prefs = {
+    enable_gpgauth: {
+        get: function() {
+            return window.localStorage.getItem('enabled');
+        },
+        set: function(value) {
+            window.localStorage.setItem('enabled', value);
+        },
+    },
+    trust_level: {
+        get: function() {
+            level = window.localStorage.getItem('trust_level');
+            if (parseInt(level)){
+                return level;
+            } else {
+                return "0";
+            }
+        },
+        set: function(level) {
+            if (!isNaN(parseInt(level))) {
+                window.localStorage.setItem('trust_level', level);
+            }
+        },
+    },
     enabled_keys: {
         get: function() {
             keys_tmp = {};
