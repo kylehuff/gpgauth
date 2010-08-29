@@ -6,52 +6,79 @@
 <script type="text/javascript" src="jquery/js/jquery-ui-1.8.4.custom.min.js"></script>
 <script type="text/javascript">
 $(function(){
-
-    $("#private_keylist").accordion({ header: "h3.private_keylist", alwaysOpen: false,
-                autoheight:false, clearStyle:true, active:".ui-accordion-left",
-                collapsible: true });
-    $("#public_keylist").accordion({ header: "h3.keylist", alwaysOpen: false,
-                autoheight:false, clearStyle:true, active:".ui-accordion-left",
-                collapsible: true });
-    $(".uidlist").accordion({ header: "h3", alwaysOpen: false,
-                autoheight:false, clearStyle:true, active:".ui-accordion-left",
-                collapsible: true });
-    $('#tabs').tabs();
-    $(".check").button();
-    $('.keylist').click(function(e){
-            uidcontainer = e.target.parentNode.parentNode.children[1];
-            uidlist = $(uidcontainer).children('[class=uid]');
-            ext = chrome.extension.getBackgroundPage();
-            var pkeylist = JSON.parse(ext.plugin.getPrivateKeyList());
-            if (!pkeylist) {
-                // if the parsing failed, create an empty keylist
-                pkeylist = {};
-            }
-            var keylist = JSON.parse(ext.plugin.getKeyList());
-            if (!keylist) {
-                // if the parsing failed, create an empty keylist
-                keylist = {};
-            }
-            key = uidcontainer.id;          
-            GAUTrust = -100;
-            uidlist.each(function(event, uidobj) {
-                uid = uidobj.id;
-                for (privateKeyId in pkeylist) {
-                    if (!pkeylist[privateKeyId].keystatus){
-                        pkey_status = 0;
-                        pkey_status += parseInt(keylist[key].expired)
-                        pkey_status += parseInt(keylist[key].disabled)
-                        pkey_status += parseInt(keylist[key].invalid)
-                        pkey_status += parseInt(keylist[key].revoked)
-                        GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 2) ? '?' : ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, keylist[key].uids[uid].uid, privateKeyId);
-                        if (GAUTrust == '?' || GAUTrust > -1) {
-                            break;
-                        }
+    refresh_trust = function(e, wait_icon) {
+        uidcontainer = e.target.parentNode.parentNode.children[1];
+        uidlist = $(uidcontainer).children('[class~=uid]');
+        ext = chrome.extension.getBackgroundPage();
+        var pkeylist = JSON.parse(ext.plugin.getPrivateKeyList());
+        if (!pkeylist) {
+            // if the parsing failed, create an empty keylist
+            pkeylist = {};
+        }
+        var keylist = JSON.parse(ext.plugin.getKeyList());
+        if (!keylist) {
+            // if the parsing failed, create an empty keylist
+            keylist = {};
+        }
+        key = uidcontainer.id;          
+        GAUTrust = -100;
+        uidlist.each(function(event, uidobj) {
+            uid = uidobj.id;
+            for (privateKeyId in pkeylist) {
+                if (!pkeylist[privateKeyId].keystatus){
+                    pkey_status = 0;
+                    pkey_status += parseInt(keylist[key].expired)
+                    pkey_status += parseInt(keylist[key].disabled)
+                    pkey_status += parseInt(keylist[key].invalid)
+                    pkey_status += parseInt(keylist[key].revoked)
+                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 2) ? '?' : ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, keylist[key].uids[uid].uid, privateKeyId);
+                    if (GAUTrust == '?' || GAUTrust > -1) {
+                        break;
                     }
                 }
-                $(uidobj).find('.trust')[0].innerHTML = "Trust: " + GAUTrust;
-            });
-            // for each UID, get trust assignement...
+            }
+            $(uidobj).find('.trust')[0].innerHTML = keylist[key].uids[uid].validity + ' | gpgAuth trust: ' + GAUTrust;
+        });
+        wait_icon.style.visibility = 'hidden';
+    }
+    $('#private_keylist').accordion({ header: 'h3.private_keylist', alwaysOpen: false,
+                autoheight:false, clearStyle:true, active:'.ui-accordion-left',
+                collapsible: true });
+    $('#public_keylist').accordion({ header: 'h3.keylist', alwaysOpen: false,
+                autoheight:false, clearStyle:true, active:'.ui-accordion-left',
+                collapsible: true });
+    $(".uidlist").accordion({ header: 'h3', alwaysOpen: false,
+                autoheight:false, clearStyle:true, active:'.ui-accordion-left',
+                collapsible: true });
+    $('#tabs').tabs();
+    $('.enable-check').button().next().next().button( {
+            text: false,
+            icons: {
+                primary: 'ui-icon-check'
+            }
+        })
+        .click( function(e) {
+            keyid = this.id.substr(-16);
+            ext = chrome.extension.getBackgroundPage();
+            ext.gpgauth_prefs.default_key.set(keyid);
+            enable_element = $('#check-' + this.id.substr(-16))[0];
+            if (keyid in ext.gpgauth_prefs.enabled_keys.get() == false) {
+                ext.gpgauth_prefs.enabled_keys.add(keyid);
+                $(enable_element).trigger('click');
+                //$(enable_element).next().trigger('click');
+                $(enable_element).next()[0].innerHTML = $(enable_element).next()[0].innerHTML.replace('Disabled', 'Enabled');
+            }
+        }).parent().buttonset();
+    $('.keylist').click(function(e){
+        e.stopPropagation();
+        if (this.className.search('active') > -1) {
+            wait_icon = $(this).children('a').children('.trust')[0].children(0)
+            wait_icon.style.visibility = 'visible';
+            setTimeout( function() { refresh_trust(e, wait_icon) }, 500);
+        }
+    });
+    $('.trust').click(function(e){
+        e.stopPropagation();
     });
 
 });
@@ -63,6 +90,9 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
     width: 74px;
     padding-right: 6px;
 }
+.private_keylist {
+    width:93%;
+}
 .invalid-key .ui-accordion-header, .disabled .ui-accordion-header {
     text-decoration: line-through;
     color: #E31;
@@ -72,6 +102,7 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
     float: right;
     position: relative;
     text-decoration: none;
+    clear: right;
 }
 .keydetails {
     font-size: 14px;
@@ -108,6 +139,24 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
     margin: 0;
     display: inline;
 }
+.keydetails span.ui-button-text {
+    font-size: 12px;
+    text-align: center;
+    margin-right: 0;
+}
+span.trust .ui-button-text {
+    padding: 4px;
+    text-align: left;
+    margin: 0;
+    width: 50px;
+    font-size: 12px;
+    z-index: 800;
+}
+.default-check .ui-button-icon-primary{
+    margin-left: 0;
+
+}
+
 </style>
 </head>
 <body>
@@ -163,7 +212,13 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
         if (parseInt(keylist[key].invalid) == 1)
             keyobj.className = 'invalid-key';
         keyobj.className += ' primary_key';
-        keyobj.innerHTML = "<h3 class='private_keylist'><a href='#'>" + keylist[key].name + "</a></h3>";
+        enabled = (key in enabled_keys) ? " checked" : "";
+        status_text = (enabled) ? "Enabled" : "Disabled";
+        default_key = (key == ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
+        keyobj.innerHTML = "<h3 class='private_keylist'><a href='#'><span>" + keylist[key].name + "</span><span class='trust' style='right: -100px;top:-6px;'>" +
+        "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + 
+            " onclick=\"if ('" + key + "' == ext.gpgauth_prefs.default_key.get()){ $(this).next()[0].className += ' ui-state-active'; return false }; (this.checked) ? ext.gpgauth_prefs.enabled_keys.add('" + key + "') : ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' id='default-" + key + "' " + default_key + "><label class='default-check' style='z-index: 0; margin-left: -4px;' for='default-" + key + "'>Set as default</label>" +
+            "</span></a></h3>";
         private_keylist.appendChild(keyobj);
         keylist[key].nuids = 0;
         for (uid in keylist[key].uids) {
@@ -178,25 +233,24 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
         if (pkeylist[key].subkeys[0].expires > 0) {
             expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(pkeylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
         }
-        enabled = (key in enabled_keys) ? " checked" : "";
         uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/>" +
             "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/>" +
             "<h4>Fingerpint</h4>: " + pkeylist[key].fingerprint +
             "<br/><br/>" +
             "<span class='dh'>Key Options</span><hr/>" +
-            "<input class='check'" + enabled + 
-            " onchange=\"(this.checked) ? ext.gpgauth_prefs.enabled_keys.add('" + key + "') : ext.gpgauth_prefs.enabled_keys.remove('" + key + "');\">";
+<!--            "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + -->
+<!--            " onclick=\"if ('" + key + "' == ext.gpgauth_prefs.default_key.get()){ return false }; (this.checked) ? ext.gpgauth_prefs.enabled_keys.add('" + key + "') : ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "'>" + status_text + "</label>";-->
             "</div>";
         for (uid in keylist[key].uids) {
             uidobj = document.createElement('div');
             uidobj.setAttribute('class', 'uid');
             uidobj.setAttribute('id', uid);
             if (parseInt(keylist[key].expired) == 1)
-                uidobj.className = 'invalid-key';
+                uidobj.className += ' invalid-key';
             email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
                 "  - (no email address provided)";
-            console.log(keylist[key].uids[uid].validity);
-            uidobj.innerHTML += "<h3 class='uidlist'><a href='#'><span style='margin:0; width: 50%'>" + keylist[key].uids[uid].uid + email + "</span><span class='trust' style='text-decoration: none;'>" + keylist[key].uids[uid].validity + "</span></a></h3>";
+            uidobj.innerHTML += "<h3 class='uidlist'><a href='#'><span style='margin:0; width: 50%'>" + keylist[key].uids[uid].uid + email + "</span><span class='trust' style='text-decoration: none;'>" + 
+            keylist[key].uids[uid].validity + "</span></a></h3>";
             signed = 0;
             nd_trust = false;
             uidobjbody = document.createElement('div');
@@ -233,7 +287,7 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
         if (parseInt(keylist[key].invalid) == 1)
             keyobj.className = 'invalid-key';
         keyobj.className += ' primary_key';
-        keyobj.innerHTML = "<h3 class='keylist'><a href='#'>" + keylist[key].name + "</a></h3>";
+        keyobj.innerHTML = "<h3 class='keylist'><a href='#'><span style='margin: 0;width: 50%'>" + keylist[key].name + "</span><span class='trust'><img style='width:15px;visibility:hidden;' width='15px' src='images/wait.gif' alt='wait'></span></a></h3>";
         public_keylist.appendChild(keyobj);
         keylist[key].nuids = 0;
         for (uid in keylist[key].uids) {
@@ -259,7 +313,7 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
             uidobj.setAttribute('class', 'uid');
             uidobj.setAttribute('id', uid);
             if (parseInt(keylist[key].expired) == 1)
-                uidobj.className = 'invalid-key';
+                uidobj.className += ' invalid-key';
             email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
                 "  - (no email address provided)";
             uidobj.innerHTML += "<h3 class='uidlist'><a href='#'><span style='margin:0; width: 50%'>" + keylist[key].uids[uid].uid + email + "</span><span class='trust' style='text-decoration: none;'><img style='width:15px;' src='images/wait.gif' alt='wait'/></span></a></h3>";

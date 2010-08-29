@@ -77,13 +77,17 @@ var gpgauthBackground = {
                 response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
                 if (response['server_validated'] == true) {
                     chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
-                    gpgauthBackground.pulses[sender.tab.id] = {
+                    chrome.pageAction.setIcon({
+                        tabId: sender.tab.id,
+                        path: 'images/badges/server_verified.png'
+                    });
+                    /*gpgauthBackground.pulses[sender.tab.id] = {
                         'timer': null,
                         'icons': ['server_verified.png', 'default.png'],
                         'current_icon': 1,
                         'counter': 10
-                    }
-                    gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+                    }*/
+                    //gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
                     response = {'server_validated': true, 'cached': response['cached']};
                 } else {
                     console.log ("err was: " + response);
