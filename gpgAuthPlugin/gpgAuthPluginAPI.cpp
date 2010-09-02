@@ -13,6 +13,8 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
     registerMethod("verifyDomainKey", make_method(this, &gpgAuthPluginAPI::verifyDomainKey));
     registerMethod("gpgEncrypt", make_method(this, &gpgAuthPluginAPI::gpgEncrypt));
     registerMethod("gpgDecrypt", make_method(this, &gpgAuthPluginAPI::gpgDecrypt));
+    registerMethod("gpgSignUID", make_method(this, &gpgAuthPluginAPI::gpgSignUID));
+    registerMethod("gpgDeleteUIDSign", make_method(this, &gpgAuthPluginAPI::gpgDeleteUIDSign));
 
     // Read-only property
     registerProperty("version",
@@ -81,6 +83,18 @@ std::string gpgAuthPluginAPI::gpgEncrypt(std::string data,
 std::string gpgAuthPluginAPI::gpgDecrypt(std::string data) {
     gpgAuth gpgauth;
     return gpgauth.gpgDecrypt(data);
+}
+
+std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
+        std::string with_keyid, long local_only, long trust_sign, std::string trust_sign_level) {
+        gpgAuth gpgauth;
+        return gpgauth.gpgSignUID(keyid, sign_uid, with_keyid, local_only, trust_sign, trust_sign_level);
+}
+
+std::string gpgAuthPluginAPI::gpgDeleteUIDSign(std::string keyid, long sign_uid,
+        long signature) {
+        gpgAuth gpgauth;
+        return gpgauth.gpgDeleteUIDSign(keyid, sign_uid, signature);
 }
 
 // Read-only property version

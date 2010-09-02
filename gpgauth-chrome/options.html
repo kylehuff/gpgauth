@@ -5,29 +5,294 @@
 <script type="text/javascript" src="jquery/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="jquery/js/jquery-ui-1.8.4.custom.min.js"></script>
 <script type="text/javascript">
+var ext = chrome.extension.getBackgroundPage();
 $(function(){
-    var ext = chrome.extension.getBackgroundPage();
-    $('#trust-level-sel').ready(function(e){
-        trust_level = window.ext.gpgauth_prefs.trust_level.get();
-        $(this).find('#trust-list').children().eq(trust_level).addClass('selected');
-        $(this).find('#trust-level-desc').children().eq(trust_level).addClass('selected');
-    });
-    $('.level').click(function(e){
-        $(this).parent().find('.selected').removeClass('selected');
-        $(this).addClass('selected');
-        $('#trust-level-desc').children('.selected').removeClass('selected');
-        current_index = $(this).parent().find('span').index(this);
-        $('#trust-level-desc').children().eq(current_index).addClass('selected');
-        window.ext.gpgauth_prefs.trust_level.set(current_index);
-    });
-    $('.trust-level-desc').click(function(e){
-        $(this).parent().find('.selected').removeClass('selected');
-        $(this).addClass('selected');
-        current_index = $(this).parent().find('div').index(this);
-        $('#trust-list').children('.selected').removeClass('selected');
-        $('#trust-list').children().eq(current_index).addClass('selected');
-        window.ext.gpgauth_prefs.trust_level.set(current_index);
-    });
+    $('#enable-gpgauth-check')[0].checked = 
+        (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true');
+
+    function buildPrivateKeylist(){
+        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
+
+        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
+        if (!pkeylist) {
+            // if the parsing failed, create an empty keylist
+            pkeylist = {};
+        }
+
+        var keylist = JSON.parse(window.ext.plugin.getKeyList());
+        if (!keylist) {
+            // if the parsing failed, create an empty keylist
+            keylist = {};
+        }
+
+        enabled_keys = window.ext.gpgauth_prefs.enabled_keys.get();
+
+        private_keylist = document.getElementById('private_keylist');    
+        
+        var prev_key = null;
+        for (key in pkeylist){
+            keyobj = document.createElement('div');
+            if (parseInt(keylist[key].disabled) == 1)
+                keyobj.className = 'disabled';
+            if (parseInt(keylist[key].expired) == 1)
+                keyobj.className = 'invalid-key';
+            if (parseInt(keylist[key].invalid) == 1)
+                keyobj.className = 'invalid-key';
+            keyobj.className += ' primary_key';
+            enabled = (key in enabled_keys) ? " checked" : "";
+            status_text = (enabled) ? "Enabled" : "Disabled";
+            default_key = (key == window.ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
+            keyobj.innerHTML = "<h3 class='private_keylist'><a href='#'><span>" + keylist[key].name + "</span><span class='trust' style='right: -10px;top:-6px;'>" +
+            "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + 
+                " onclick=\"if ('" + key + "' == window.ext.gpgauth_prefs.default_key.get()){ $(this).next()[0].className += ' ui-state-active'; return false }; (this.checked) ? window.ext.gpgauth_prefs.enabled_keys.add('" + key + "') : window.ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' id='default-" + key + "' " + default_key + "><label class='default-check' style='z-index: 0; margin-left: -4px;' for='default-" + key + "'>Set as default</label>" +
+                "</span></a></h3>";
+            private_keylist.appendChild(keyobj);
+            keylist[key].nuids = 0;
+            for (uid in keylist[key].uids) {
+                keylist[key].nuids += 1;
+            }
+            uidlist = document.createElement('div');
+            uidlist.setAttribute('style', 'width: 96%;');
+            uidlist.setAttribute('class', 'uidlist');
+            uidlist.setAttribute('id', key);
+            created_date = new Date(pkeylist[key].subkeys[0].created * 1000).toJSON().substring(0, 10);
+            expiry = (pkeylist[key].subkeys[0].expires == 0) ? 'Never' : new Date(pkeylist[key].subkeys[0].expires * 1000).toJSON();
+            if (pkeylist[key].subkeys[0].expires > 0) {
+                expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(pkeylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
+            }
+            uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/\>" +
+                "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/\>" +
+                "<h4>Fingerpint</h4>: " + pkeylist[key].fingerprint +
+                "<br/\><br/\>" +
+                "<span class='dh'>Key Options</span><hr/\>" +
+                "</div>";
+                
+            for (uid in keylist[key].uids) {
+                uidobj = document.createElement('div');
+                uidobj.setAttribute('class', 'uid');
+                uidobj.setAttribute('id', key + '-' + uid);
+                if (parseInt(keylist[key].expired) == 1)
+                    uidobj.className += ' invalid-key';
+                email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
+                    "  - (no email address provided)";
+                uidobj.innerHTML += "<h3 class='uidlist'><a href='#'><span style='margin:0; width: 50%'>" + keylist[key].uids[uid].uid + email + "</span><span class='trust' style='text-decoration: none;'>" + 
+                keylist[key].uids[uid].validity + "</span></a></h3>";
+                signed = 0;
+                nd_trust = false;
+                uidobjbody = document.createElement('div');
+                for (sig in keylist[key].uids[uid].signatures) {
+                    sig_keyid = keylist[key].uids[uid].signatures[sig]
+                    if (sig_keyid in keylist || nd_trust) {
+                        if (sig_keyid in pkeylist) {
+                            signed = 1;
+                        }
+                        email = (keylist[sig_keyid].uids[0].email.length > 1) ? "&lt;" + keylist[sig_keyid].uids[0].email + "&gt;" : "(no email address provided)"
+                        uidobjbody.innerHTML += "<div id='sig-" + sig_keyid + "-" + sig + "' class='signature-box'>" +
+                            "<img src='images/badges/stock_signature.png'><span class='signature-uid'>" + 
+                            keylist[sig_keyid].name + "</span><br/\><span class='signature-email'>" + 
+                            email + "</span><br/\><span class='signature-keyid'>" + sig_keyid + "</span></div>";
+                    }
+                }
+                uidobj.appendChild(uidobjbody);
+                uidlist.appendChild(uidobj);
+            }
+            keyobj.appendChild(uidlist);
+        }
+        $(".uidlist").accordion({ header: 'h3.uidlist', alwaysOpen: false,
+                    autoheight:false, clearStyle:true, active:'.ui-accordion-left',
+                    collapsible: true });
+        $('#trust-level-sel').ready(function(e){
+            trust_level = window.ext.gpgauth_prefs.trust_level.get();
+            $(this).find('#trust-list').children().eq(trust_level).addClass('selected');
+            $(this).find('#trust-level-desc').children().eq(trust_level).addClass('selected');
+        });
+        $('.level').click(function(e){
+            $(this).parent().find('.selected').removeClass('selected');
+            $(this).addClass('selected');
+            $('#trust-level-desc').children('.selected').removeClass('selected');
+            current_index = $(this).parent().find('span').index(this);
+            $('#trust-level-desc').children().eq(current_index).addClass('selected');
+            window.ext.gpgauth_prefs.trust_level.set(current_index);
+        });
+        $('.trust-level-desc').click(function(e){
+            $(this).parent().find('.selected').removeClass('selected');
+            $(this).addClass('selected');
+            current_index = $(this).parent().find('div').index(this);
+            $('#trust-list').children('.selected').removeClass('selected');
+            $('#trust-list').children().eq(current_index).addClass('selected');
+            window.ext.gpgauth_prefs.trust_level.set(current_index);
+        });
+    }
+    
+    function buildPublicKeylist(openKey, openUID){
+        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
+        if (!pkeylist) {
+            // if the parsing failed, create an empty keylist
+            pkeylist = {};
+        }
+
+        var keylist = JSON.parse(window.ext.plugin.getKeyList());
+        if (!keylist) {
+            // if the parsing failed, create an empty keylist
+            keylist = {};
+        }
+
+        enabled_keys = window.ext.gpgauth_prefs.enabled_keys.get();
+        public_keylist = document.getElementById('public_keylist');
+        public_keylist.innerHTML = "<div class='ui-accordion-left'></div>";
+        var prev_key = null;
+        for (key in keylist){
+            if (key in pkeylist) {
+                continue;
+            }
+            keyobj = document.createElement('div');
+            if (parseInt(keylist[key].disabled) == 1)
+                $(keyobj).addClass('disabled');
+            if (parseInt(keylist[key].expired) == 1)
+                $(keyobj).addClass('invalid-key');
+            if (parseInt(keylist[key].invalid) == 1)
+                $(keyobj).addClass('invalid-key');
+            $(keyobj).addClass('primary_key');
+            if (key == openKey) {
+                $(keyobj).addClass('open_key');
+                keyobj.setAttribute('id', 'open_key');
+            }
+            keyobj.innerHTML = "<h3 class='public_keylist'><a href='#'><span style='margin: 0;width: 50%'>" + keylist[key].name + "</span><span class='trust'><img style='width:15px;visibility:hidden;' width='15px' src='images/wait.gif' alt='wait'></span></a></h3>";
+            public_keylist.appendChild(keyobj);
+            keylist[key].nuids = 0;
+            for (uid in keylist[key].uids) {
+                keylist[key].nuids += 1;
+            }
+            uidlist = document.createElement('div');
+            uidlist.setAttribute('style', 'width: 96%;');
+            uidlist.setAttribute('class', 'uidlist');
+            uidlist.setAttribute('id', key);
+            created_date = new Date(keylist[key].subkeys[0].created * 1000).toJSON().substring(0, 10);
+            expiry = (keylist[key].subkeys[0].expires == 0) ? 'Never' : new Date(keylist[key].subkeys[0].expires * 1000).toJSON();
+            if (keylist[key].subkeys[0].expires > 0) {
+                expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(keylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
+            }
+            uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/\>" +
+                "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/\>" +
+                "<h4>Fingerpint</h4>: " + keylist[key].fingerprint +
+                "<br/\><br/\>" +
+                "<span class='dh'>Key Options</span><hr/\>" +
+                "</div>";
+            for (uid in keylist[key].uids) {
+                uidobj = document.createElement('div');
+                uidobj.setAttribute('class', 'uid');
+                uidobj.setAttribute('id', key + '-' + uid);
+                if (key == openKey && uid == openUID)
+                    $(uidobj).addClass('open_uid');
+                if (parseInt(keylist[key].expired) == 1 || parseInt(keylist[key].uids[uid].revoked))
+                    uidobj.className += ' invalid-key';
+                email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
+                    "  - (no email address provided)";
+                uidobj.innerHTML += "<h4 class='uidlist'><a href='#'><span style='margin:0; width: 50%'>" + keylist[key].uids[uid].uid + email + "</span><span class='trust' style='text-decoration: none;'><img style='width:15px;' src='images/wait.gif' alt='wait'/\></span></a></h4>";
+                signed = 0;
+                nd_trust = false;
+                uidobjbody = document.createElement('div');
+                uidobjbody.innerHTML = "<div class='uid-options'><input class='uid-option-button' id='sign-" + key + "-" + uid + "' type='button' value='Sign this UID'/\></div><br/\>";
+                if (parseInt(keylist[key].uids[uid].revoked))
+                    $(uidobjbody).find('.uid-option-button').addClass('uid-revoked');
+                for (sig in keylist[key].uids[uid].signatures) {
+                    sig_keyid = keylist[key].uids[uid].signatures[sig]
+                    if (sig_keyid in keylist || nd_trust) {
+                        if (sig_keyid in pkeylist) {
+                            signed = 1;
+                        }
+                        email = (keylist[sig_keyid].uids[0].email.length > 1) ? "&lt;" + keylist[sig_keyid].uids[0].email + "&gt;" : "(no email address provided)"
+                        uidobjbody.innerHTML += "<div id='sig-" + sig_keyid + "-" + sig + "' class='signature-box'>" +
+                            "<img src='images/badges/stock_signature.png'><span class='signature-uid'>" + 
+                            keylist[sig_keyid].name + "</span><br/\><span class='signature-email'>" + 
+                            email + "</span><br/\><span class='signature-keyid'>" + sig_keyid + "</span><br/\><input type='button' class='delsig-button' id='delsig-" + key + "-" + uid + "-" + sig + "' value='Delete'/\></div>";
+                    }
+                }
+                uidobj.appendChild(uidobjbody);
+                uidlist.appendChild(uidobj);
+            }
+            keyobj.appendChild(uidlist);
+        }
+        $('#public_keylist').children('.primary_key').accordion({ header: 'h3', alwaysOpen: false,
+                    autoheight:false, clearStyle:true, active: '.ui-accordion-left',
+                    collapsible: true }).children();
+        $('#public_keylist').children('.open_key').accordion("activate" , 0);
+        $(".uidlist").children('.uid').accordion({ header: 'h4.uidlist', alwaysOpen: false,
+                    autoheight:false, clearStyle:true, active:'.ui-accordion-left',
+                    collapsible: true });
+
+        if (openKey) {
+            wait_icon = $('#public_keylist').children('.open_key').find('a').children('.trust')[0].children(0);
+            refresh_trust($('#public_keylist').children('.open_key').children('h3').find('a')[0], wait_icon);
+        }
+
+        $('.uidlist').find('.open_uid').accordion("activate", 0);
+        $('.uid-option-button').button().click(function(e){
+            params = this.id.split('-');
+            console.log(params[1], 
+                parseInt(params[2]) + 1,
+                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 'M')
+            sign_result = window.ext.plugin.gpgSignUID(params[1], 
+                parseInt(params[2]) + 1,
+                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 'M');
+            console.log(sign_result);
+            buildPublicKeylist(params[1], params[2]);
+        });
+        $('.uid-revoked').button({disabled: true, label: "Cannot sign revoked UID"})
+        $('.delsig-button').button().click(function(e){
+            params = this.id.split('-');
+            calling_button = this;
+            sig_details = $(calling_button).parent()[0].id.split('-');
+            $("#delsig-confirm").find('#delsig-text')[0].innerHTML = "Are you certain you would like to delete signature " +
+                sig_details[1] + " from this User id?";
+            if (sig_details[1] in pkeylist < 1) {
+                $("#delsig-confirm").find('#delsig-text')[0].innerHTML += "<br><br><span class='ui-icon ui-icon-alert' style='float:left; margin:0 7px 20px 0;'></span>This signature was made with a key that does not belong to you; This action cannot be undone without refreshing the keylist from a remote source.";
+                $("#delsig-confirm").dialog("option", "height", "200");
+            }
+            $("#delsig-confirm").dialog("option", "buttons", { "Delete": function() { 
+                        delsig_result = window.ext.plugin.gpgDeleteUIDSign(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1);
+                        console.log(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1)
+                        //$(calling_button).parent().parent()[0].removeChild($(calling_button).parent()[0]);
+                        buildPublicKeylist(params[1], params[2]);
+                        $("#delsig-confirm").dialog("close");
+                    },
+                    Cancel: function() {
+                        $("#delsig-confirm").dialog("close");
+                    }
+                }
+            );
+            $("#delsig-confirm").dialog('open');
+        });
+        $("#delsig-confirm").dialog({
+            resizable: false,
+            height:180,
+            modal: true,
+            autoOpen: false,
+            buttons: {
+                'Delete this Signature?': function() {
+                    $(this).dialog('close');
+                },
+                Cancel: function() {
+                    $(this).dialog('close');
+                }
+            }
+        });
+        $('.public_keylist').click(function(e){
+            e.stopPropagation();
+            if (this.className.search('active') > -1) {
+                wait_icon = $(this).children('a').children('.trust')[0].children(0)
+                wait_icon.style.visibility = 'visible';
+                setTimeout( function() { refresh_trust(e.target, wait_icon) }, 500);
+                //console.log("trust refresh should start soon..");
+            }
+        });
+    }
+    /* end publickeylist */
+
+    buildPrivateKeylist();
+    buildPublicKeylist();
+
+
     $('#enable-gpgauth-check').button({
         'label': (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true') ? 'Enabled' : 'Disabled'
         }).click(function(e) {
@@ -38,8 +303,12 @@ $(function(){
             $(this).button('refresh');
         });
 
-    refresh_trust = function(e, wait_icon) {
-        uidcontainer = e.target.parentNode.parentNode.children[1];
+    refresh_trust = function(item, wait_icon) {
+        if (item.parentNode.parentNode.nodeName == "H3") {
+            uidcontainer = item.parentNode.parentNode.parentNode.children[1];
+        } else {
+            uidcontainer = item.parentNode.parentNode.children[1];
+        }
         uidlist = $(uidcontainer).children('[class~=uid]');
         var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
         if (!pkeylist) {
@@ -51,10 +320,10 @@ $(function(){
             // if the parsing failed, create an empty keylist
             keylist = {};
         }
-        key = uidcontainer.id;          
+        key = uidcontainer.id;
         GAUTrust = -100;
         uidlist.each(function(event, uidobj) {
-            uid = uidobj.id;
+            uid = uidobj.id.split('-')[1];
             for (privateKeyId in pkeylist) {
                 if (!pkeylist[privateKeyId].keystatus){
                     pkey_status = 0;
@@ -62,25 +331,23 @@ $(function(){
                     pkey_status += parseInt(keylist[key].disabled)
                     pkey_status += parseInt(keylist[key].invalid)
                     pkey_status += parseInt(keylist[key].revoked)
-                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 2) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, keylist[key].uids[uid].uid, privateKeyId);
+                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 1) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, key, privateKeyId);
+                    //console.log(keylist[key].uids[uid].uid, key, privateKeyId, GAUTrust);
                     if (GAUTrust == '?' || GAUTrust > -1) {
                         break;
                     }
                 }
             }
-            $(uidobj).find('.trust')[0].innerHTML = keylist[key].uids[uid].validity + ' | gpgAuth trust: ' + GAUTrust;
+            validity = (parseInt(keylist[key].uids[uid].revoked)) ? 'revoked' : keylist[key].uids[uid].validity;
+            validity += (parseInt(keylist[key].uids[uid].invalid)) ? ' | invalid' : '';
+            $(uidobj).find('.trust')[0].innerHTML = validity + ' | gpgAuth trust: ' + GAUTrust;
         });
         wait_icon.style.visibility = 'hidden';
     }
     $('#private_keylist').accordion({ header: 'h3.private_keylist', alwaysOpen: false,
                 autoheight:false, clearStyle:true, active:'.ui-accordion-left',
                 collapsible: true });
-    $('#public_keylist').accordion({ header: 'h3.keylist', alwaysOpen: false,
-                autoheight:false, clearStyle:true, active:'.ui-accordion-left',
-                collapsible: true });
-    $(".uidlist").accordion({ header: 'h3', alwaysOpen: false,
-                autoheight:false, clearStyle:true, active:'.ui-accordion-left',
-                collapsible: true });
+
     $('#tabs').tabs();
     $('.enable-check').button().next().next().button({
             text: false,
@@ -95,21 +362,14 @@ $(function(){
             if (keyid in window.ext.gpgauth_prefs.enabled_keys.get() == false) {
                 window.ext.gpgauth_prefs.enabled_keys.add(keyid);
                 $(enable_element).trigger('click');
-                //$(enable_element).next().trigger('click');
                 $(enable_element).next()[0].innerHTML = $(enable_element).next()[0].innerHTML.replace('Disabled', 'Enabled');
             }
         }).parent().buttonset();
-    $('.keylist').click(function(e){
-        e.stopPropagation();
-        if (this.className.search('active') > -1) {
-            wait_icon = $(this).children('a').children('.trust')[0].children(0)
-            wait_icon.style.visibility = 'visible';
-            setTimeout( function() { refresh_trust(e, wait_icon) }, 500);
-        }
-    });
     $('.trust').click(function(e){
         e.stopPropagation();
     });
+
+
 
 });
 </script>
@@ -276,6 +536,42 @@ span.trust .ui-button-text {
     margin-left: 0;
 
 }
+.signature-box {
+    color: #000;
+    font-family:sans-serif;
+    margin-top:5px;
+    background:#fff;
+    min-width: 240px;
+    display:inline-block;
+    padding:8px;
+    margin-right: 20px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+    -moz-box-shadow:#666 2px 2px 2px;
+    -webkit-box-shadow:#666 2px 2px 2px;
+}
+.sign-revoked {
+    background: #f8f;
+}
+.signature-box img {
+    margin-top: 20px;
+    float:left;
+    height: 32px;
+}
+.signature-box input {
+    float: right;
+    position: relative;
+    bottom: 0;
+}
+.signature-uid, .signature-email, .signature-keyid {
+    font-size: 120%;
+    margin-left: 10px;
+    clear: both;
+}
+.signature-keyid {
+
+}
+
 
 </style>
 </head>
@@ -363,161 +659,7 @@ span.trust .ui-button-text {
             <div class="ui-accordion-left"></div>
         </div>
     </div>
-<script>
-    var ext = chrome.extension.getBackgroundPage();
-    $('#enable-gpgauth-check')[0].checked = 
-        (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true');
-
-    var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
-    if (!pkeylist) {
-        // if the parsing failed, create an empty keylist
-        pkeylist = {};
-    }
-
-    var keylist = JSON.parse(window.ext.plugin.getKeyList());
-    if (!keylist) {
-        // if the parsing failed, create an empty keylist
-        keylist = {};
-    }
-
-    enabled_keys = window.ext.gpgauth_prefs.enabled_keys.get();
-
-    private_keylist = document.getElementById('private_keylist');    
-    
-    var prev_key = null;
-    for (key in pkeylist){
-        keyobj = document.createElement('div');
-        if (parseInt(keylist[key].disabled) == 1)
-            keyobj.className = 'disabled';
-        if (parseInt(keylist[key].expired) == 1)
-            keyobj.className = 'invalid-key';
-        if (parseInt(keylist[key].invalid) == 1)
-            keyobj.className = 'invalid-key';
-        keyobj.className += ' primary_key';
-        enabled = (key in enabled_keys) ? " checked" : "";
-        status_text = (enabled) ? "Enabled" : "Disabled";
-        default_key = (key == window.ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
-        keyobj.innerHTML = "<h3 class='private_keylist'><a href='#'><span>" + keylist[key].name + "</span><span class='trust' style='right: -10px;top:-6px;'>" +
-        "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + 
-            " onclick=\"if ('" + key + "' == window.ext.gpgauth_prefs.default_key.get()){ $(this).next()[0].className += ' ui-state-active'; return false }; (this.checked) ? window.ext.gpgauth_prefs.enabled_keys.add('" + key + "') : window.ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' id='default-" + key + "' " + default_key + "><label class='default-check' style='z-index: 0; margin-left: -4px;' for='default-" + key + "'>Set as default</label>" +
-            "</span></a></h3>";
-        private_keylist.appendChild(keyobj);
-        keylist[key].nuids = 0;
-        for (uid in keylist[key].uids) {
-            keylist[key].nuids += 1;
-        }
-        uidlist = document.createElement('div');
-        uidlist.setAttribute('style', 'width: 96%;');
-        uidlist.setAttribute('class', 'uidlist');
-        uidlist.setAttribute('id', key);
-        created_date = new Date(pkeylist[key].subkeys[0].created * 1000).toJSON().substring(0, 10);
-        expiry = (pkeylist[key].subkeys[0].expires == 0) ? 'Never' : new Date(pkeylist[key].subkeys[0].expires * 1000).toJSON();
-        if (pkeylist[key].subkeys[0].expires > 0) {
-            expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(pkeylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
-        }
-        uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/>" +
-            "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/>" +
-            "<h4>Fingerpint</h4>: " + pkeylist[key].fingerprint +
-            "<br/><br/>" +
-            "<span class='dh'>Key Options</span><hr/>" +
-<!--            "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + -->
-<!--            " onclick=\"if ('" + key + "' == ext.gpgauth_prefs.default_key.get()){ return false }; (this.checked) ? ext.gpgauth_prefs.enabled_keys.add('" + key + "') : ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"><label for='check-" + key + "'>" + status_text + "</label>";-->
-            "</div>";
-        for (uid in keylist[key].uids) {
-            uidobj = document.createElement('div');
-            uidobj.setAttribute('class', 'uid');
-            uidobj.setAttribute('id', uid);
-            if (parseInt(keylist[key].expired) == 1)
-                uidobj.className += ' invalid-key';
-            email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
-                "  - (no email address provided)";
-            uidobj.innerHTML += "<h3 class='uidlist'><a href='#'><span style='margin:0; width: 50%'>" + keylist[key].uids[uid].uid + email + "</span><span class='trust' style='text-decoration: none;'>" + 
-            keylist[key].uids[uid].validity + "</span></a></h3>";
-            signed = 0;
-            nd_trust = false;
-            uidobjbody = document.createElement('div');
-            for (sig in keylist[key].uids[uid].signatures) {
-                sig_keyid = keylist[key].uids[uid].signatures[sig]
-                if (sig_keyid in keylist || nd_trust) {
-                    if (sig_keyid in pkeylist) {
-                        signed = 1;
-                    }
-                    signature_id = Math.random().toString().substring(3);
-                    uidobjbody.innerHTML += "<div id='" + signature_id + "' style='clear:right;'>" +
-                        "<img style='height:14px;' src='images/badges/stock_signature.png'> " + 
-                        keylist[sig_keyid].name + " " + sig_keyid + "</div>";
-                }
-            }
-            uidobj.appendChild(uidobjbody);
-            uidlist.appendChild(uidobj);
-        }
-        keyobj.appendChild(uidlist);
-    }
-    
-
-    public_keylist = document.getElementById('public_keylist');
-    var prev_key = null;
-    for (key in keylist){
-        if (key in pkeylist) {
-            continue;
-        }
-        keyobj = document.createElement('div');
-        if (parseInt(keylist[key].disabled) == 1)
-            keyobj.className = 'disabled';
-        if (parseInt(keylist[key].expired) == 1)
-            keyobj.className = 'invalid-key';
-        if (parseInt(keylist[key].invalid) == 1)
-            keyobj.className = 'invalid-key';
-        keyobj.className += ' primary_key';
-        keyobj.innerHTML = "<h3 class='keylist'><a href='#'><span style='margin: 0;width: 50%'>" + keylist[key].name + "</span><span class='trust'><img style='width:15px;visibility:hidden;' width='15px' src='images/wait.gif' alt='wait'></span></a></h3>";
-        public_keylist.appendChild(keyobj);
-        keylist[key].nuids = 0;
-        for (uid in keylist[key].uids) {
-            keylist[key].nuids += 1;
-        }
-        uidlist = document.createElement('div');
-        uidlist.setAttribute('style', 'width: 96%;');
-        uidlist.setAttribute('class', 'uidlist');
-        uidlist.setAttribute('id', key);
-        created_date = new Date(keylist[key].subkeys[0].created * 1000).toJSON().substring(0, 10);
-        expiry = (keylist[key].subkeys[0].expires == 0) ? 'Never' : new Date(keylist[key].subkeys[0].expires * 1000).toJSON();
-        if (keylist[key].subkeys[0].expires > 0) {
-            expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(keylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
-        }
-        uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/>" +
-            "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/>" +
-            "<h4>Fingerpint</h4>: " + keylist[key].fingerprint +
-            "<br/><br/>" +
-            "<span class='dh'>Key Options</span><hr/>" +
-            "</div>";
-        for (uid in keylist[key].uids) {
-            uidobj = document.createElement('div');
-            uidobj.setAttribute('class', 'uid');
-            uidobj.setAttribute('id', uid);
-            if (parseInt(keylist[key].expired) == 1)
-                uidobj.className += ' invalid-key';
-            email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
-                "  - (no email address provided)";
-            uidobj.innerHTML += "<h3 class='uidlist'><a href='#'><span style='margin:0; width: 50%'>" + keylist[key].uids[uid].uid + email + "</span><span class='trust' style='text-decoration: none;'><img style='width:15px;' src='images/wait.gif' alt='wait'/></span></a></h3>";
-            signed = 0;
-            nd_trust = false;
-            uidobjbody = document.createElement('div');
-            for (sig in keylist[key].uids[uid].signatures) {
-                sig_keyid = keylist[key].uids[uid].signatures[sig]
-                if (sig_keyid in keylist || nd_trust) {
-                    if (sig_keyid in pkeylist) {
-                        signed = 1;
-                    }
-                    signature_id = Math.random().toString().substring(3);
-                    uidobjbody.innerHTML += "<div id='" + signature_id + "' style='clear:right;'>" +
-                        "<img style='height:14px;' src='images/badges/stock_signature.png'> " + 
-                        keylist[sig_keyid].name + " " + sig_keyid + "</div>";
-                }
-            }
-            uidobj.appendChild(uidobjbody);
-            uidlist.appendChild(uidobj);
-        }
-        keyobj.appendChild(uidlist);
-    }
-</script>
+<div id="delsig-confirm" title="Delete this Signature?">
+	<p><span class="ui-icon ui-icon-help" style="float:left; margin:0 7px 20px 0;"></span><span id='delsig-text'>Are you sure you wish to delete this signature?<span></p>
+</div>
 </html>

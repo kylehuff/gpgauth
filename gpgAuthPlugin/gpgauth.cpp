@@ -1,4 +1,5 @@
 #include "gpgauth.h"
+#include "keyedit.h"
 
 using namespace std;
 
@@ -71,6 +72,76 @@ gpgme_ctx_t gpgAuth::init(){
 
     return ctx;
 };
+
+string gpgAuth::set_preference(string preference, string pref_value) {
+    gpgme_ctx_t ctx = init();
+    gpgme_error_t err;
+    gpgme_conf_comp_t conf, comp;
+    string return_code;
+
+    err = gpgme_op_conf_load (ctx, &conf);
+    if (err)
+        return "error";
+
+    gpgme_conf_arg_t original_arg, arg;
+    gpgme_conf_opt_t opt;
+    
+    err = gpgme_conf_arg_new (&arg, GPGME_CONF_STRING, (char *) pref_value.c_str());
+    
+    if (err)
+        return "error";
+
+    comp = conf;
+    while (comp && strcmp (comp->name, "gpg"))
+        comp = comp->next;
+
+    if (comp) {
+        opt = comp->options;
+        while (opt && strcmp (opt->name, (char *) preference.c_str())){
+            opt = opt->next;
+        }
+        
+        if (opt->value) {
+            original_arg = opt->value;
+        } else {
+            original_arg = opt->value;
+            return_code = "blank";
+        }
+        
+        /* if the new argument and original argument are the same, return 0, 
+            there is nothing to do. */
+        if (original_arg && !strcmp (original_arg->value.string, arg->value.string))
+            return "0";
+
+        printf("setting option: %s ", opt->name);
+        
+        if (!strcmp(return_code.c_str(), "blank")) {
+            printf("from value: '%s' ", "<empty>");
+            printf("to value: '%s'\n", arg->value.string);
+        } else {
+            printf("from value: '%s' ", original_arg->value.string);
+            printf("to value: '%s'\n", arg->value.string);
+        }   
+        
+        if (opt) {
+            if (!strcmp(pref_value.c_str(), "blank"))
+                err = gpgme_conf_opt_change (opt, 0, NULL);
+            else
+                err = gpgme_conf_opt_change (opt, 0, arg);
+            if (err) return_code = "error";
+            
+            err = gpgme_op_conf_save (ctx, comp);
+            if (err) return_code = "error";
+        }
+    }
+    
+    if (!return_code.length())
+        return_code = original_arg->value.string;
+        
+    gpgme_conf_release (conf);
+
+    return return_code;
+}
 
 /* TODO: Make this method private - we don't want
     web-pages able to call this method; this should
@@ -149,6 +220,88 @@ string gpgAuth::gpgEncrypt(string data, string enc_to_keyid, \
         gpgme_data_release (out);
     
     return out_buf;
+}
+
+
+string gpgAuth::gpgSignUID(string keyid, int sign_uid, string with_keyid,
+        bool local_only, bool trust_sign, string trust_sign_level){
+    gpgme_ctx_t ctx = init();
+    gpgme_error_t err;
+    gpgme_data_t out = NULL;
+    gpgme_key_t key = NULL;
+    string result = "signed: ";
+    current_uid = i_to_str(sign_uid);
+    result += i_to_str(sign_uid);
+    string errr;
+
+    err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
+    if (err != GPG_ERR_NO_ERROR)
+        errr = string("error with keylist start").append(gpgme_strerror (err));;
+    err = gpgme_op_keylist_next (ctx, &key);
+    if (err != GPG_ERR_NO_ERROR)
+        errr = string("error with keylist next").append(gpgme_strerror (err));
+    err = gpgme_op_keylist_end (ctx);
+    if (err != GPG_ERR_NO_ERROR)
+        errr = string("error with keylist end; ").append(gpgme_strerror (err));
+
+    /* set the default key to the with_keyid */
+    string original_value = gpgAuth::set_preference("default-key", (char *) with_keyid.c_str());
+
+    err = gpgme_data_new (&out);
+    if (err != GPG_ERR_NO_ERROR)
+        errr = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
+    
+    err = gpgme_op_edit (ctx, key, edit_fnc_sign, out, out);
+    if (err != GPG_ERR_NO_ERROR)
+        errr = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
+
+    /* if the original value is not the new value, reset it to the previous value */
+    if (strcmp ((char *) original_value.c_str(), "0")) {
+        //cout << "from way down here: " << original_value << "\n";
+        gpgAuth::set_preference("default-key", original_value);
+    }
+
+    gpgme_data_release (out);
+    gpgme_key_unref (key);
+    gpgme_release (ctx);
+    return result;
+}
+
+string gpgAuth::gpgDeleteUIDSign(string keyid, int uid, int signature){
+    gpgme_ctx_t ctx = init();
+    gpgme_error_t err;
+    gpgme_data_t out = NULL;
+    gpgme_key_t key = NULL;
+    string result = "signature deleted";
+
+    current_uid = i_to_str(uid);
+    current_sig = i_to_str(signature);
+
+    err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist start").append(gpgme_strerror (err));;
+    err = gpgme_op_keylist_next (ctx, &key);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist next").append(gpgme_strerror (err));
+    err = gpgme_op_keylist_end (ctx);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist end; ").append(gpgme_strerror (err));
+
+    err = gpgme_data_new (&out);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
+    
+    err = gpgme_op_edit (ctx, key, edit_fnc_delsign, out, out);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
+
+    current_uid = "0";
+    current_sig = "0";
+
+    gpgme_data_release (out);
+    gpgme_key_unref (key);
+    gpgme_release (ctx);
+    return result;
 }
 
 string gpgAuth::gpgDecrypt(string data){
@@ -657,11 +810,19 @@ int main(int argc, char **argv)
         cout << "data to encrypt: " << data_to_enc << "\nencrypt to: " << enc_to_key << "\nencrypt from: " << enc_from_key << "\nsign with: " << sign_with_key << "\n";
         retval = gpgauth.gpgEncrypt(data_to_enc, enc_to_key, enc_from_key, sign_with_key);
     } else if (cmd == 3) {
+        //string x = gpgauth.gpgDeleteUIDSign("A7FFA0E4", 1, 3);
+        string x = gpgauth.gpgSignUID("042FBCDA", 1, "E09B5752", 1, 1, "M");
+        printf ("return was: %s\n", x.c_str());
+        x = gpgauth.gpgDeleteUIDSign("042FBCDA", 1, 3);
+        printf ("return was: %s\n", x.c_str());
+        string y = gpgauth.gpgSignUID("042FBCDA", 1, "E09B5752", 1, 1, "M");
+        printf ("return was: %s\n", y.c_str());
+        x = gpgauth.gpgDeleteUIDSign("042FBCDA", 1, 3);
+        printf ("return was: %s\n", x.c_str());
         string domain_key_fpr = "934DA17C3944B426";
-        string domain = "www.gpgauth.org";
+        string domain = "curetheitch.com";
         retval = "Checking key " + domain_key_fpr + "\n";
-        string required_sig_keyid = "0DF9C95C3BE1A023";
-        //gpgme_ctx_t ctx = gpgauth.init();
+        string required_sig_keyid = "934DA17C3944B426";
         int key_valid = gpgauth.verifyDomainKey(domain, domain_key_fpr, required_sig_keyid);
         if (key_valid >= 0) {
             retval += "key passes validity test with a trust level of " + i_to_str(key_valid);

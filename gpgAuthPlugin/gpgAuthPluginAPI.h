@@ -19,9 +19,16 @@ public:
     std::string getKeyList();
     std::string getPrivateKeyList();
     std::string getDomainKey(std::string domain);
-    int verifyDomainKey(std::string domain, std::string domain_key_fpr, std::string required_sig_keyid);
-    std::string gpgEncrypt(std::string data, std::string enc_to_keyid, std::string enc_from_keyid = NULL, std::string sign = NULL);
+    int verifyDomainKey(std::string domain, std::string domain_key_fpr, 
+        std::string required_sig_keyid);
+    std::string gpgEncrypt(std::string data, std::string enc_to_keyid, 
+        std::string enc_from_keyid=NULL, std::string sign=NULL);
     std::string gpgDecrypt(std::string data);
+    std::string gpgSignUID(std::string keyid, long sign_uid,
+        std::string with_keyid, long local_only=NULL, long trust_sign=NULL, 
+        std::string trust_sign_level=NULL);
+    std::string gpgDeleteUIDSign(std::string keyid, long sign_uid,
+        long signature);
 
     // Read-only property ${PROPERTY.ident}
     std::string get_version();
