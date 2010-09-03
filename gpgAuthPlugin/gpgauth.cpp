@@ -340,13 +340,13 @@ string gpgAuth::gpgDecrypt(string data){
 }
 
 /*
-    This method ensures a given UID <domain> with matching keyid
-        <domain_key_fpr> has been signed by a required key
+    This method ensures a given UID <domain> at index <uid_idx>
+        with matching keyid <domain_key_fpr> has been signed by a required key
         <required_sig_keyid> and returns a GAU_trust value as the result.
         This method is intended to be called during an iteration of
         trusted key ids.
 */
-int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string required_sig_keyid){
+int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, string required_sig_keyid){
     int nuids;
     int nsigs;
     int domain_key_valid = -1;
@@ -368,12 +368,14 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string requir
     //  to use the constants
     //TODO: Add this list of constants to the documentation
     /* gpgauth.verifyDomainKey returns a numeric trust value -
-        -6: the domain UID and/or domain key was signed by a key that has been
-             revoked
-        -5: the domain uid was signed by a disabled key
-        -4: the signature is expired
-        -3: the domain uid signature has been revoked
-        -2: the domain uid sinature is invalid
+        -8: the domain UID and/or domain key was signed by an expired key
+        -7: the domain UID and/or domain key was signed by a key that
+            has been revoked
+        -6: the domain uid was signed by a disabled key
+        -5: the signature is expired
+        -4: the domain uid signature has been revoked
+        -3: the domain uid sinature is invalid
+        -2: the uid has been revoked
         -1: the domain uid was not signed by any enabled private key and fails
              web-of-trust
         0: UID of domain_keyid was signed by an ultimately trusted private key
@@ -403,21 +405,29 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string requir
             for (nuids=0, uid=key->uids; uid; uid = uid->next, nuids++) {
                 for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
                     // the signature keyid matches the required_sig_keyid
-                    if (!strcmp(uid->name, (char *) domain.c_str())) {
+                    //cout << (uid_idx == nuids);
+                    if (uid_idx == -1)
+                        uid_idx = nuids;
+                    if (!strcmp(uid->name, (char *) domain.c_str()) && uid_idx == nuids) {
+                        if (uid->revoked)
+                            domain_key_valid = -2;
                         if (!strcmp(sig->keyid, (char *) required_sig_keyid.c_str())){
                             cout << "signature status: " << sig->status << "\n";
+                            cout << uid->name << " " << nuids << "\n";
                             if (user_key->owner_trust == GPGME_VALIDITY_ULTIMATE)
                                 domain_key_valid = 0;
                             if (user_key->owner_trust == GPGME_VALIDITY_FULL)
                                 domain_key_valid = 2;
                             if (user_key->expired)
                                 domain_key_valid++;
-                            if (sig->expired)
-                                domain_key_valid = -4;
                             if (sig->invalid)
-                                domain_key_valid = -2;
+                                domain_key_valid = -3;
                             if (sig->revoked)
-                                domain_key_valid = -7;
+                                domain_key_valid = -4;
+                            if (sig->expired)
+                                domain_key_valid = -5;
+                            if (user_key->disabled)
+                                domain_key_valid = -6;
                             if (sig->status == GPG_ERR_NO_PUBKEY)
                                 domain_key_valid = -1;
                             if (sig->status == GPG_ERR_GENERAL)
@@ -429,12 +439,14 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string requir
                     }
                 }
             }
-         }
+        }
         if (key)
             gpgme_key_unref (key);
         if (gpg_err_code (err) != GPG_ERR_EOF) exit(6);
         err = gpgme_op_keylist_end (ctx);
         result = gpgme_op_keylist_result (ctx);
+        // the UID failed the signature test, check to see if the primary UID was signed
+        // by one permissible key, or a trusted key.
         if (domain_key_valid == -1) {
             err = gpgme_op_keylist_start (ctx, (char *) domain_key_fpr.c_str(), 0);
             if(err != GPG_ERR_NO_ERROR) return -1;
@@ -444,9 +456,10 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string requir
                 for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
                     // the signature keyid matches the required_sig_keyid
                     if (!strcmp(sig->keyid, (char *) required_sig_keyid.c_str())){
-                        // if the primary UID is not the same as the domain, verify
-                        //  the signature
-                        if (strcmp(key->uids->name, (char *) domain.c_str())) {
+                        // if the primary UID is not the primary, check the for a 
+                        // signature on the primary UID of a trusted key
+                        if (uid_idx != 0) {
+                            cout << user_key->owner_trust << "\n";
                             if (user_key->owner_trust == GPGME_VALIDITY_ULTIMATE)
                                 domain_key_valid = 4;
                             if (user_key->owner_trust == GPGME_VALIDITY_FULL)
@@ -457,8 +470,8 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, string requir
                                 domain_key_valid = -6;
                             if (sig->invalid)
                                 domain_key_valid = -2;
-                            if (sig->revoked)
-                                domain_key_valid = -7;
+                            if (uid->revoked || sig->revoked)
+                                domain_key_valid = -6;
                             if (sig->status == GPG_ERR_NO_PUBKEY)
                                 domain_key_valid = -1;
                             if (sig->status == GPG_ERR_GENERAL)
@@ -713,6 +726,25 @@ string gpgAuth::getKeyList(string domain, int secret_only){
     return retVal;
 }
 
+string gpgAuth::gpgImportKey(string key) {
+    gpgme_ctx_t ctx = init();
+    gpgme_error_t err;
+    gpgme_data_t key_buf;
+    gpgme_import_result_t result;
+
+    err = gpgme_data_new_from_file (&key_buf, (char *) key.c_str(), 1);
+    cout << err << "\n";
+
+    err = gpgme_op_import (ctx, key_buf);
+    cout << err << "\n";
+    result = gpgme_op_import_result (ctx);
+    gpgme_data_release (key_buf);
+
+    gpgme_release (ctx);
+    return "0";
+}
+
+
 /* only compile main if -DDEBUG flag is set at compile time */
 #ifdef DEBUG
 
@@ -811,19 +843,19 @@ int main(int argc, char **argv)
         retval = gpgauth.gpgEncrypt(data_to_enc, enc_to_key, enc_from_key, sign_with_key);
     } else if (cmd == 3) {
         //string x = gpgauth.gpgDeleteUIDSign("A7FFA0E4", 1, 3);
-        string x = gpgauth.gpgSignUID("042FBCDA", 1, "E09B5752", 1, 1, "M");
-        printf ("return was: %s\n", x.c_str());
-        x = gpgauth.gpgDeleteUIDSign("042FBCDA", 1, 3);
-        printf ("return was: %s\n", x.c_str());
-        string y = gpgauth.gpgSignUID("042FBCDA", 1, "E09B5752", 1, 1, "M");
-        printf ("return was: %s\n", y.c_str());
-        x = gpgauth.gpgDeleteUIDSign("042FBCDA", 1, 3);
-        printf ("return was: %s\n", x.c_str());
+        //string x = gpgauth.gpgSignUID("042FBCDA", 1, "E09B5752", 1, 1, "M");
+        //printf ("return was: %s\n", x.c_str());
+        //x = gpgauth.gpgDeleteUIDSign("042FBCDA", 1, 3);
+        //printf ("return was: %s\n", x.c_str());
+        //string y = gpgauth.gpgSignUID("042FBCDA", 1, "E09B5752", 1, 1, "M");
+        //printf ("return was: %s\n", y.c_str());
+        //x = gpgauth.gpgDeleteUIDSign("042FBCDA", 1, 3);
+        //printf ("return was: %s\n", x.c_str());
         string domain_key_fpr = "934DA17C3944B426";
         string domain = "curetheitch.com";
         retval = "Checking key " + domain_key_fpr + "\n";
         string required_sig_keyid = "934DA17C3944B426";
-        int key_valid = gpgauth.verifyDomainKey(domain, domain_key_fpr, required_sig_keyid);
+        int key_valid = gpgauth.verifyDomainKey(domain, domain_key_fpr, 0, required_sig_keyid);
         if (key_valid >= 0) {
             retval += "key passes validity test with a trust level of " + i_to_str(key_valid);
         } else {

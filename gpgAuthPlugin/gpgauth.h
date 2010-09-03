@@ -30,7 +30,7 @@ class gpgAuth {
         /* Method to verify the key associated with <domain> is
             valid and is signed by the user */
         int verifyDomainKey(string domain, string domain_key_fpr, 
-            string required_sig_keyid);
+            int uid_idx, string required_sig_keyid);
         // TODO: move to private after the removal of main()
         std::string getKeyList(string domain=NULL, int secret_only=0);
         // TODO: move to private after the removal of main()
@@ -41,5 +41,6 @@ class gpgAuth {
         std::string gpgSignUID(string keyid, int sign_uid, string with_keyid, 
             bool local_only=1, bool trust_sign=1, string trust_sign_level="M");
         std::string gpgDeleteUIDSign(string keyid, int uid, int signature);
+        std::string gpgImportKey(string key);
     private:
 };

@@ -321,7 +321,7 @@ $(function(){
             keylist = {};
         }
         key = uidcontainer.id;
-        GAUTrust = -100;
+        GAUTrust = -1;
         uidlist.each(function(event, uidobj) {
             uid = uidobj.id.split('-')[1];
             for (privateKeyId in pkeylist) {
@@ -331,7 +331,8 @@ $(function(){
                     pkey_status += parseInt(keylist[key].disabled)
                     pkey_status += parseInt(keylist[key].invalid)
                     pkey_status += parseInt(keylist[key].revoked)
-                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 1) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, key, privateKeyId);
+                    console.log("'" + keylist[key].uids[uid].uid + "', '" + key + "', " + uid + ", '" + privateKeyId + "'");
+                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 1) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, key, uid, privateKeyId);
                     //console.log(keylist[key].uids[uid].uid, key, privateKeyId, GAUTrust);
                     if (GAUTrust == '?' || GAUTrust > -1) {
                         break;

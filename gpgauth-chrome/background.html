@@ -196,13 +196,14 @@ var gpgauthBackground = {
         for (domain_keyid in domain_keylist){
             for (private_keyid in private_keylist){
                 /* plugin.verifyDomainKey returns a numeric trust value -
-                    -7: the domain UID and/or domain key was signed by an expired key
-                    -6: the domain UID and/or domain key was signed by a key that
+                    -8: the domain UID and/or domain key was signed by an expired key
+                    -7: the domain UID and/or domain key was signed by a key that
                         has been revoked
-                    -5: the domain uid was signed by a disabled key
-                    -4: the signature is expired
-                    -3: the domain uid signature has been revoked
-                    -2: the domain uid sinature is invalid
+                    -6: the domain uid was signed by a disabled key
+                    -5: the signature is expired
+                    -4: the domain uid signature has been revoked
+                    -3: the domain uid sinature is invalid
+                    -2: the domain uid has been revoked
                     -1: the domain uid was not signed by any enabled
                          private key and fails web-of-trust
                     0: UID of domain_keyid was signed by an ultimately trusted
@@ -230,6 +231,7 @@ var gpgauthBackground = {
                     " from domain: " + domain + " against private_key: " + private_keyid);
                 trust = plugin.verifyDomainKey(
                     domain,
+                    -1,
                     domain_keyid,
                     private_keyid
                 );

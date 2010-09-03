@@ -20,7 +20,7 @@ public:
     std::string getPrivateKeyList();
     std::string getDomainKey(std::string domain);
     int verifyDomainKey(std::string domain, std::string domain_key_fpr, 
-        std::string required_sig_keyid);
+        long uid_idx, std::string required_sig_keyid);
     std::string gpgEncrypt(std::string data, std::string enc_to_keyid, 
         std::string enc_from_keyid=NULL, std::string sign=NULL);
     std::string gpgDecrypt(std::string data);

@@ -63,9 +63,10 @@ std::string gpgAuthPluginAPI::getDomainKey(std::string domain){
         trusted key ids.
 */
 int gpgAuthPluginAPI::verifyDomainKey(std::string domain, 
-        std::string domain_key_fpr, std::string required_sig_keyid) {
+        std::string domain_key_fpr, long uid_idx,
+        std::string required_sig_keyid) {
     gpgAuth gpgauth;
-    return gpgauth.verifyDomainKey(domain, domain_key_fpr, required_sig_keyid);
+    return gpgauth.verifyDomainKey(domain, domain_key_fpr, uid_idx, required_sig_keyid);
 }
 
 /*
