@@ -563,12 +563,10 @@ string gpgAuth::getKeyList(string domain, int secret_only){
                                 | GPGME_KEYLIST_MODE_SIGS));
 
     /* gpgme_op_keylist_start (gpgme_ctx_t ctx, const char *pattern, int secret_only) */
-    if (domain != ""){ // limit key listing to search criteria 'domain'
-        const char *pattern = domain.c_str();
-        err = gpgme_op_keylist_ext_start (ctx, &pattern, 0, 0);
+    if (domain.length() > 0){ // limit key listing to search criteria 'domain'
+        err = gpgme_op_keylist_start (ctx, domain.c_str(), 0);
     } else { // list all keys
-        const char *pattern = "";
-        err = gpgme_op_keylist_ext_start (ctx, &pattern, secret_only, 0);
+        err = gpgme_op_keylist_ext_start (ctx, NULL, secret_only, 0);
     }
     if(err != GPG_ERR_NO_ERROR) return "error: 3; Problem with keylist_start";
 

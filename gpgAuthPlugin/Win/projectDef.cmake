@@ -16,6 +16,7 @@ file (GLOB PLATFORM RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
 # use this to add preprocessor definitions
 add_definitions(
     /D "_ATL_STATIC_REGISTRY"
+    /D "HAVE_W32_SYSTEM"
 )
 
 SOURCE_GROUP(Win FILES ${PLATFORM})

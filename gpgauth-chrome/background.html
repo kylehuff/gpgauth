@@ -231,8 +231,8 @@ var gpgauthBackground = {
                     " from domain: " + domain + " against private_key: " + private_keyid);
                 trust = plugin.verifyDomainKey(
                     domain,
-                    -1,
                     domain_keyid,
+                    -1,
                     private_keyid
                 );
                 if (trust > -1){

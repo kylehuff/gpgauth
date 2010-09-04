@@ -52,7 +52,7 @@ std::string gpgAuthPluginAPI::getPrivateKeyList(){
 */
 std::string gpgAuthPluginAPI::getDomainKey(std::string domain){
     gpgAuth gpgauth;
-    return gpgauth.getKeyList(domain);
+    return gpgauth.getKeyList(domain, 0);
 }
 
 /*

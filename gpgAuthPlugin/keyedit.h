@@ -1,3 +1,7 @@
+#ifdef HAVE_W32_SYSTEM
+#include <windows.h>
+#endif
+
 #include <stdlib.h>
 #include <iostream>
 
@@ -77,8 +81,14 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
     }
 
     if (response) {
+#ifdef HAVE_W32_SYSTEM
+        DWORD written;
+        WriteFile ((HANDLE) fd, response, strlen (response), &written, 0);
+        WriteFile ((HANDLE) fd, "\n", 1, &written, 0);
+#else
         write (fd, response, strlen (response));
         write (fd, "\n", 1);
+#endif
     }
     args = "";
     return 0;
@@ -141,55 +151,14 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
     }
 
     if (response) {
+#ifdef HAVE_W32_SYSTEM
+        DWORD written;
+        WriteFile ((HANDLE) fd, response, strlen (response), &written, 0);
+        WriteFile ((HANDLE) fd, "\n", 1, &written, 0);
+#else
         write (fd, response, strlen (response));
         write (fd, "\n", 1);
+#endif
     }
     return 0;
 }
-
-//int
-//main (int argc, char **argv)
-//{
-//  gpgme_ctx_t ctx;
-//  gpgme_error_t err;
-//  gpgme_data_t out = NULL;
-//  gpgme_key_t key = NULL;
-//  const char *pattern = "ipatrol";
-//  char *agent_info;
-
-//  init_gpgme (GPGME_PROTOCOL_OpenPGP);
-
-//  int x = set_pref();
-//  if (x)
-//    printf("error was: %i\n", x);
-
-//  err = gpgme_new (&ctx);
-//  fail_if_err (err);
-//  err = gpgme_data_new (&out);
-//  fail_if_err (err);
-
-//  agent_info = getenv("GPG_AGENT_INFO");
-//  if (!(agent_info && strchr (agent_info, ':')))
-//    gpgme_set_passphrase_cb (ctx, passphrase_cb, 0);
-
-//  err = gpgme_op_keylist_start (ctx, pattern, 0);
-//  fail_if_err (err);
-//  err = gpgme_op_keylist_next (ctx, &key);
-//  fail_if_err (err);
-//  err = gpgme_op_keylist_end (ctx);
-//  fail_if_err (err);
-
-//  current_delsig_uid = "1";
-//  current_delsig_idx = "3";
-
-//  err = gpgme_op_edit (ctx, key, edit_fnc_sign, out, out);
-//  fail_if_err (err);
-
-//  fputs ("[-- Last response --]\n", stdout);
-//  
-//  gpgme_data_release (out);
-//  gpgme_key_unref (key);
-//  gpgme_release (ctx);
-
-//  return 0;
-//}

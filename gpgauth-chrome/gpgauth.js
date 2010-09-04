@@ -49,7 +49,7 @@ var gpgAuth = {
         response_headers = request.getAllResponseHeaders()
         
         /* Create an object to store any gpgAuth specific headers returned from the server. */
-        //TODO: this should be a function, which returns the object.
+        //TODO: this should be a method which returns the object.
         this.gpgauth_headers = {'length': 0};
         var re = /(x-gpgauth-.*?): (.*)/gi;
         is_match = false;
