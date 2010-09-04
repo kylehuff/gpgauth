@@ -9,6 +9,26 @@ std::string current_uid;
 std::string current_sig;
 // Used as iter count for current signature index
 static int signature_iter = 1;
+static int progress_called;
+
+static void
+progress (void *self, const char *what, int type, int current, int total)
+{
+  if (!strcmp (what, "primegen") && !current && !total
+        && (type == '.' || type == '+' || type == '!'
+        || type == '^' || type == '<' || type == '>'))
+    {
+      printf ("%c", type);
+      fflush (stdout);
+      progress_called = 1;
+    }
+  else
+    {
+      fprintf (stderr, "unknown progress `%s' %d %d %d\n", what, type,
+        current, total);
+      exit (1);
+    }
+}
 
 gpgme_error_t
 edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int fd)

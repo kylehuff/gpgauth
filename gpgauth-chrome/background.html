@@ -354,6 +354,7 @@ var gpgauthBackground = {
 gpgauthBackground.gpg_elements = new Array();
 gpgauthBackground.debug = true;
 gpgauthBackground.pulses = [];
+
 // Listen for the content script to send a message to the background page.
 chrome.extension.onRequest.addListener(gpgauthBackground.onRequest);
 </script>
@@ -368,5 +369,12 @@ chrome.extension.onRequest.addListener(gpgauthBackground.onRequest);
     document.body.appendChild(plugin);
     var result = plugin.valid;
     console.log("my plugin returned: " + result);
+    /* Check to make sure all of the enabled_keys are private keys */
+    secret_keys = JSON.parse(plugin.getPrivateKeyList());
+    for (key in gpgauth_prefs.enabled_keys.get()){
+        if (key in secret_keys == false){
+            gpgauth_prefs.enabled_keys.remove(key);
+        }
+    }
 </script>
 </html>

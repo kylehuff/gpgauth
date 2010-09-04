@@ -41,6 +41,7 @@ class gpgAuth {
         std::string gpgSignUID(string keyid, int sign_uid, string with_keyid, 
             bool local_only=1, bool trust_sign=1, string trust_sign_level="M");
         std::string gpgDeleteUIDSign(string keyid, int uid, int signature);
+        std::string gpgGenKey();
         std::string gpgImportKey(string key);
     private:
 };

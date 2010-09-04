@@ -27,7 +27,7 @@ $(function(){
 
         enabled_keys = window.ext.gpgauth_prefs.enabled_keys.get();
 
-        private_keylist = document.getElementById('private_keylist');    
+        private_keylist = document.getElementById('private_keylist');
         
         var prev_key = null;
         for (key in pkeylist){
@@ -223,7 +223,8 @@ $(function(){
 
         if (openKey) {
             wait_icon = $('#public_keylist').children('.open_key').find('a').children('.trust')[0].children(0);
-            refresh_trust($('#public_keylist').children('.open_key').children('h3').find('a')[0], wait_icon);
+            uid_list = $('#public_keylist').children('.open_key').children('h3').find('a')[0];
+            setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 500);
         }
 
         $('.uidlist').find('.open_uid').accordion("activate", 0);
@@ -283,7 +284,6 @@ $(function(){
                 wait_icon = $(this).children('a').children('.trust')[0].children(0)
                 wait_icon.style.visibility = 'visible';
                 setTimeout( function() { refresh_trust(e.target, wait_icon) }, 500);
-                //console.log("trust refresh should start soon..");
             }
         });
     }
@@ -325,16 +325,17 @@ $(function(){
         uidlist.each(function(event, uidobj) {
             uid = uidobj.id.split('-')[1];
             for (privateKeyId in pkeylist) {
-                if (!pkeylist[privateKeyId].keystatus){
+                if (!pkeylist[privateKeyId].keystatus && 
+                    privateKeyId in window.ext.gpgauth_prefs.enabled_keys.get()){
                     pkey_status = 0;
                     pkey_status += parseInt(keylist[key].expired)
                     pkey_status += parseInt(keylist[key].disabled)
                     pkey_status += parseInt(keylist[key].invalid)
                     pkey_status += parseInt(keylist[key].revoked)
-                    console.log("'" + keylist[key].uids[uid].uid + "', '" + key + "', " + uid + ", '" + privateKeyId + "'");
+                    //console.log("'" + keylist[key].uids[uid].uid + "' '" + key + "' " + uid + " '" + privateKeyId + "'");
                     GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 1) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, key, uid, privateKeyId);
                     //console.log(keylist[key].uids[uid].uid, key, privateKeyId, GAUTrust);
-                    if (GAUTrust == '?' || GAUTrust > -1) {
+                    if (GAUTrust == '?' || GAUTrust == 0) {
                         break;
                     }
                 }
