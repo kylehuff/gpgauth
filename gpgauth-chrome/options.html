@@ -8,7 +8,7 @@
 var ext = chrome.extension.getBackgroundPage();
 $(function(){
     $('#enable-gpgauth-check')[0].checked = 
-        (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true');
+        (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true');
 
     function buildPrivateKeylist(){
         var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
@@ -294,12 +294,12 @@ $(function(){
 
 
     $('#enable-gpgauth-check').button({
-        'label': (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true') ? 'Enabled' : 'Disabled'
+        'label': (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true') ? 'Enabled' : 'Disabled'
         }).click(function(e) {
-            (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true') ? window.ext.gpgauth_prefs.enable_gpgauth.set(false) : ext.gpgauth_prefs.enable_gpgauth.set(true);
-            status = (window.ext.gpgauth_prefs.enable_gpgauth.get() == "true") ? 'Enabled' : 'Disabled'
+            (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true') ? window.ext.gpgauth_prefs.gpgauth_enabled.set(false) : ext.gpgauth_prefs.gpgauth_enabled.set(true);
+            status = (window.ext.gpgauth_prefs.gpgauth_enabled.get() == "true") ? 'Enabled' : 'Disabled'
             $(this).button('option', 'label', status);
-            this.checked = (window.ext.gpgauth_prefs.enable_gpgauth.get() == 'true');
+            this.checked = (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true');
             $(this).button('refresh');
         });
 
@@ -449,7 +449,7 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
 }
 
 .trust-level-desc:hover {
-    background-color: #1E1;
+    background-color: #1C1;
 }
 
 #trust-level-desc .selected {

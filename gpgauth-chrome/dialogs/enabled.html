@@ -1,22 +1,87 @@
 <style>
 body {
-  min-width:357px;
-  overflow-x:hidden;
-  position:relative;
+    min-width:357px;
+    overflow-x:hidden;
+    position:relative;
+    text-align: center;
+    background-color: #000;
+    margin-left: auto; margin-right: auto;
+    font-family:sans-serif;
+    margin:5px;
+    padding:8px;
 }
 
-img {
-  margin:5px;
-  border:2px solid black;
-  vertical-align:middle;
-  width:75px;
-  height:75px;
+#server_validation {
+    text-align: left;
+    font-weight: bold;
+    border: 1px solid #2E2;
+    font-family: sans-serif;
+    font-size: 16px;
+    color: white;
+    padding: 10px;
+    margin-left: auto; margin-right: auto;
+    margin-top: 5px;
+    text-shadow: #333 1px 1px 1px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+    -moz-box-shadow:#666 2px 2px 2px;
+    -webkit-box-shadow: #666 2px 2px 2px;
+    background: #2C2 url('../images/menumask.png') repeat-x;
 }
+
+#description {
+    font-weight: normal;
+    margin-bottom: 5px;
+}
+
+#options {
+    float: right;
+    position: relative;
+    top: -15px;
+}
+
 </style>
-
-<script>
-/* scripting logic here */
-</script>
 <body>
-    This website is gpgAuth Enabled; If you would like to login, click here
+    <div id="server_validation">
+        <div id="info"></div>
+        <hr/>
+        <div id="description">
+        </div>
+    </div>
 </body>
+<script>
+    chrome.tabs.getSelected(null, function(_tab) { 
+        chrome.extension.sendRequest({msg: 'getPopupData', tab: _tab},
+            function(response) {
+                container = document.getElementById('server_validation');
+                info_element = document.getElementById('info');
+                options_element = document.getElementById('description');
+                for (param in response.result.popup_data) {
+                    info_element.innerHTML += param + ": " + response.result.popup_data[param] + "<br/\>";                    
+                }
+                if (response.result.validation['server_validated'] == true) {
+                    options_element.innerHTML += "The server has validated itself against your keyring";
+                } else {
+                    if (response.result.validation['domain_key_trust'] > 0) {
+                        container.style.backgroundColor = "#F58400";
+                        container.style.border = "1px solid #FF8400";
+                    } else if (response.result.validation['domain_key_trust'] < 0) {
+                        container.style.backgroundColor = "#E31";
+                        container.style.border = "1px solid #F31";
+                    }
+                    if (response.result.validation['configured_trust'] != 
+                          response.result.validation['domain_key_trust']) {
+                        options_element.innerHTML += "The Public Key associated with this domain has a trust value of " +
+                            response.result.validation['domain_key_trust'] + ", which does not meet the minimum value in " +
+                            "your prefrences.<br/\><br/\>Your configured value is " + 
+                            response.result.validation['configured_trust'] + ".<br/\><br/\>";
+                        options_element.innerHTML += "<div id='options'><input type='button' value='Log in anyway' onclick='alert(\"this does nothing, yet...\");'/\>" +
+                            "<input type='button' value='cancel' onclick='window.close();'/\></div>";
+                        
+                    }
+                }
+            }
+        );
+    }); 
+
+</script>

@@ -6,7 +6,7 @@
         for use in extensions for other browsers.
 */
 var gpgauth_prefs = {
-    enable_gpgauth: {
+    gpgauth_enabled: {
         get: function() {
             return window.localStorage.getItem('enabled');
         },
@@ -83,6 +83,24 @@ var gpgauth_prefs = {
 /* end prefs setup */
 
 var gpgauthBackground = {
+    init: function() {
+        //TODO: maybe a check of the version and update here ??
+        plugin = document.createElement('embed');
+        plugin.id = 'plugin';
+        plugin.type = 'application/x-gpgauth';
+        document.body.appendChild(plugin);
+        var result = plugin.valid;
+        console.log("my plugin returned: " + result);
+        /* Check to make sure all of the enabled_keys are private keys */
+        secret_keys = JSON.parse(plugin.getPrivateKeyList());
+        for (key in gpgauth_prefs.enabled_keys.get()){
+            if (key in secret_keys == false){
+                gpgauth_prefs.enabled_keys.remove(key);
+            }
+        }
+        console.log("background initted");
+    },
+
     // Called when a message is passed.
     onRequest: function(request, sender, sendResponse) {
         // set the default response to null
@@ -98,8 +116,8 @@ var gpgauthBackground = {
                 response = {'valid': false, 'error': 'Server key not found' };
             } else {
                 response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
+                chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
                 if (response['server_validated'] == true) {
-                    chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
                     chrome.pageAction.setIcon({
                         tabId: sender.tab.id,
                         path: 'images/badges/server_verified.png'
@@ -111,9 +129,10 @@ var gpgauthBackground = {
                         'counter': 10
                     }*/
                     //gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
-                    response = {'server_validated': true, 'cached': response['cached']};
+                    response = {'server_validated': true, 'cached': response['cached'], 'validation': response};
                 } else {
-                    console.log ("err was: " + response);
+                    console.log ("err was: ", response);
+                    response = {'server_validated': false, 'cached': response['cached'], 'validation': response};
                 }
             }
         }
@@ -124,6 +143,26 @@ var gpgauthBackground = {
                 //this.gpg_elements[document.domain]['login_in_progress'] = new Date().getTime();
             } else {
                 response = {'valid': false };
+            }
+        }
+        if (request.msg == 'enabled') {
+            response = {'enabled': gpgauth_prefs.gpgauth_enabled.get() };
+        }
+        if (request.msg == 'getPopupData'){
+            //if (request.tab){
+            console.log('getPopupData request:', request);
+            var re = /^.*?\/\/(.*?\.[^0-9]{3,4})\/.*?/gi
+            domain = re.exec(request.tab.url)[1]
+            console.log(gpgauthBackground.gpg_elements[domain]);
+            response = {};
+            response['popup_data'] = { 'Domain': domain, 
+                'Public Key' : gpgauthBackground.gpg_elements[domain]['domain_key'],
+                'Trust Level': gpgauthBackground.gpg_elements[domain]['domain_key_trust']
+            };
+            response['validation'] = {
+                'server_validated': gpgauthBackground.gpg_elements[domain]['server_validated'],
+                'configured_trust': gpgauthBackground.gpg_elements[domain]['trust_level'],
+                'domain_key_trust': gpgauthBackground.gpg_elements[domain]['domain_key_trust']
             }
         }
         // Return the response and let the connection be cleaned up.
@@ -235,16 +274,12 @@ var gpgauthBackground = {
                     -1,
                     private_keyid
                 );
-                if (trust > -1){
-                    // decide here if the returned trust value matches the users defined
-                    //  preferences, if so, break out, otherwise continue searching.
-                    console.log("usable domain key: " + domain_keyid + " with a trust level of " + trust + " because signed with " + private_keyid);
-                    usable_domain_keyid = domain_keyid;
-                    usable_private_keyid = private_keyid;
-                    usable_domain_key_trust = trust;
-                    if (trust == 0)
-                        break;
-                }
+                console.log("usable domain key: " + domain_keyid + " with a trust level of " + trust + " because signed with " + private_keyid);
+                usable_domain_keyid = domain_keyid;
+                usable_private_keyid = private_keyid;
+                usable_domain_key_trust = trust;
+                if (trust == 0)
+                    break;
             }
             if (trust > -1){
                 break;
@@ -259,9 +294,13 @@ var gpgauthBackground = {
 
     doServerTests: function(domain, domain_keylist, server_verify_url) {
         if (!this.gpg_elements[domain]) {
-            this.gpg_elements[domain] = new Array();
+            this.gpg_elements[domain] = {};
         }
-        if (!this.gpg_elements[domain]['server_verified'] == true) {
+        // The trust configuration has changed, don't use cached server validation
+        if (this.gpg_elements[domain]['trust_level'] != parseInt(gpgauth_prefs.trust_level.get())) {
+            this.gpg_elements[domain]['server_validated'] = false;
+        }
+        if (!this.gpg_elements[domain]['server_validated'] == true) {
             this.gpg_elements[domain]['server_verify_url'] = 'http://' + domain + '/' + server_verify_url;
             key_results = gpgauthBackground.verifyDomainKey(domain, domain_keylist);
             //verify the result here, consult preferences for minimum trust level
@@ -269,19 +308,23 @@ var gpgauthBackground = {
             this.gpg_elements[domain]['domain_key_trust'] = key_results['domain_key_trust'];
             this.gpg_elements[domain]['user_key'] = key_results['user_key'];
             this.gpg_elements[domain]['cached'] = false;
-            console.log(key_results);
-            if (parseInt(key_results['domain_key_trust']) < 0 || key_results['domain_key_trust'] == null) {
-                return "failed trust!";
+            this.gpg_elements[domain]['trust_level'] = parseInt(gpgauth_prefs.trust_level.get())
+            //console.log(key_results);
+            if (parseInt(key_results['domain_key_trust']) < 0 || key_results['domain_key_trust'] == null
+                || key_results['domain_key_trust'] > parseInt(gpgauth_prefs.trust_level.get())) {
+                this.gpg_elements[domain]['server_validated'] = false;
+                return this.gpg_elements[domain];
             } else {
                 console.log ("keyresult was " + key_results['domain_key_trust'] );
                 var token = this.generate_random_token();
                 this.gpg_elements[domain]['token_for_server'] = token;
                 var encrypted_token = plugin.gpgEncrypt(token, key_results['domain_key'], '', '');
                 var server_response = gpgauthBackground.doServerTokenTests(domain, encrypted_token);
-                this.gpg_elements[domain]['server_verified'] = true;
+                this.gpg_elements[domain]['server_validated'] = true;
                 return this.gpg_elements[domain];
             }
         } else {
+            console.log("CACHED");
             this.gpg_elements[domain]['cached'] = true;
             return this.gpg_elements[domain];
         }
@@ -304,7 +347,7 @@ var gpgauthBackground = {
         } else {
             server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
         }
-        if (this.debug){
+        if (this.debug == 2){
             console.log(http.responseText);
             console.log(server_response);
         }
@@ -351,7 +394,7 @@ var gpgauthBackground = {
     },
 }
 
-gpgauthBackground.gpg_elements = new Array();
+gpgauthBackground.gpg_elements = {};
 gpgauthBackground.debug = true;
 gpgauthBackground.pulses = [];
 
@@ -362,19 +405,6 @@ chrome.extension.onRequest.addListener(gpgauthBackground.onRequest);
 <body>
 </body>
 <script>
-    console.log("background initted");
-    plugin = document.createElement('embed');
-    plugin.id = 'plugin';
-    plugin.type = 'application/x-gpgauth';
-    document.body.appendChild(plugin);
-    var result = plugin.valid;
-    console.log("my plugin returned: " + result);
-    /* Check to make sure all of the enabled_keys are private keys */
-    secret_keys = JSON.parse(plugin.getPrivateKeyList());
-    for (key in gpgauth_prefs.enabled_keys.get()){
-        if (key in secret_keys == false){
-            gpgauth_prefs.enabled_keys.remove(key);
-        }
-    }
+    gpgauthBackground.init();
 </script>
 </html>

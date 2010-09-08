@@ -32,7 +32,19 @@ var gpgAuth = {
         if (!this.gpg_elements) {
             this.gpg_elements = new Array();
         }
-        var gpgauth_enabled = true;
+        chrome.extension.sendRequest({msg: 'enabled'}, function(response) { gpgAuth.init(response); });
+    },
+
+    init: function(response) {
+        //console.log(response.result.enabled);
+        
+        var gpgauth_enabled = response.result.enabled;
+        if (gpgauth_enabled == "false" || gpgauth_enabled == false 
+            || gpgauth_enabled == ''
+            || gpgauth_enabled == null) {
+            console.log("gpgauth is not enabled, exiting");
+            return false;
+        }
         if (!this.gpg_elements[document.domain]) {
             this.gpg_elements[document.domain] = new Array();
         }
@@ -68,13 +80,16 @@ var gpgAuth = {
                 this.gpgauth_headers.length += 1;
             }
         }
+        console.log("headers");
+        console.log(this.gpgauth_headers);
+        console.log("^headers");
 
         this.plugin_loaded = false;
         /* if gpgAuth headers were found, send a message to background.html
             to have it init the plugin */
         if (this.gpgauth_headers.length) {
             chrome.extension.sendRequest({msg: 'show'}, function(response) {});
-            if (!this.gpg_elements[document.domain]['server_verified']) {
+            if (!this.gpg_elements[document.domain]['server_validated']) {
                 if (this.gpgauth_headers[SERVER_VERIFICATION_URL] != 'invalid') {
                     /* do server tests */
                     chrome.extension.sendRequest({msg: 'doServerTests', params: {'domain':document.domain, 
@@ -86,7 +101,6 @@ var gpgAuth = {
                 console.log('not checking server again, already done');
             }
         }
-        //TODO: maybe a check of the version and update here ??
 
         this.status_window = gpgauth_status;
         this.status_window.onLoad();
@@ -104,12 +118,12 @@ var gpgAuth = {
 
     serverResult: function(response) {
         if (!response.result['valid']) {
-            console.log(response.result);
+            console.log(response);
         }
         if (response.result['server_validated'] == true) {
-            x = document.createElement('pre');
-            console.log(this.gpgauth_headers);
-            document.body.appendChild(x); x.innerText = "cached server validation: " + response.result.cached;
+            //x = document.createElement('pre');
+            //console.log(this.gpgauth_headers);
+            //document.body.appendChild(x); x.innerText = "cached server validation: " + response.result.cached;
             if (this.gpgauth_headers['X-GPGAuth-Progress'] == 'stage0'){
                 console.log("calling doUserLogin");
                 chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain':document.domain, 

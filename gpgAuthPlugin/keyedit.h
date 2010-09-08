@@ -134,8 +134,7 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
             response = (char *) "Y";
         } else if (!strcmp (args, "keyedit.delsig.valid") || 
             !strcmp (args, "keyedit.delsig.invalid") ||
-            !strcmp (args, "keyedit.delsig.unknown") ||
-            !strcmp (args, "keyedit.delsig.selfsig") ) {
+            !strcmp (args, "keyedit.delsig.unknown")) {
             if (signature_iter == atoi(current_sig.c_str())) {
                 response = (char *) "y";
                 current_sig = "0";
@@ -145,6 +144,8 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
                 response = (char *) "n";
             }
             signature_iter++;
+        } else if (!strcmp (args, "keyedit.delsig.selfsig")) {
+            response = (char *) "y";
         } else if (!strcmp (args, "passphrase.enter")) {
             response = (char *) "";
         }
