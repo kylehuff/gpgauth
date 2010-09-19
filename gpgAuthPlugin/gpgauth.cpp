@@ -143,19 +143,12 @@ string gpgAuth::set_preference(string preference, string pref_value) {
     return return_code;
 }
 
-/* TODO: Make this method private - we don't want
-    web-pages able to call this method; this should
-    occur from a separate method which asserts the
-    data is in a gpgAuth pre/post-amble and is a sane
-    string. This is not *needed* for chrome, since the
-    plugin itself is private and unaccessible from
-    the page, but other browsers I don't know yet */
-/* This method is public, it accepts 4 parameters,
-    data, enc_to_keyid, enc_from_keyid [optional], 
-    and sign [optional; default: 0:NULL:false] 
+/* This method accepts 4 parameters, data, enc_to_keyid, 
+    enc_from_keyid [optional], and sign [optional; default: 0:NULL:false]
     the return value is a string buffer of the result */
 /* NOTE: Normally, we should call this without a value for
-    encrypt_from_key to keep the anonymity of the user */
+    encrypt_from_key to keep the anonymity of the user until after the 
+    host has been validated */
 string gpgAuth::gpgEncrypt(string data, string enc_to_keyid, \
         string enc_from_keyid, string sign){
     /* declare variables */
@@ -408,13 +401,11 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
                         domain_key_valid = -2;
                         break;
                     }
-                    if (uid_idx == -1)
-                        uid_idx = nuids;
-                    if (!strcmp(uid->name, (char *) domain.c_str()) && uid_idx == nuids) {
+                    if (!strcmp(uid->name, (char *) domain.c_str()) && (uid_idx == nuids || uid_idx == -1)) {
                         if (uid->revoked)
                             domain_key_valid = -3;
                         if (!strcmp(sig->keyid, (char *) required_sig_keyid.c_str())){
-                            //cout << uid->name << " " << nuids << "\n";
+                            cout << uid->name << " " << nuids << "\n";
                             if (user_key->owner_trust == GPGME_VALIDITY_ULTIMATE)
                                 domain_key_valid = 0;
                             if (user_key->owner_trust == GPGME_VALIDITY_FULL)
@@ -450,54 +441,30 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
         // by one permissible key, or a trusted key.
         if (domain_key_valid == -1) {
             for (nuids=0, uid=domain_key->uids; uid; uid = uid->next, nuids++) {
-                for (nsigs=0, sig=uid->signatures; sig; sig=sig->next, nsigs++) {
-                    if (!sig->status == GPG_ERR_NO_ERROR)
-                        continue;
-                    // the signature keyid matches the required_sig_keyid
-                    if (nuids == uid_idx && domain_key_valid == -1){
-                        err = gpgme_get_key(ctx, (char *) sig->keyid, &key, 0);
-                        err = gpgme_get_key(ctx, (char *) sig->keyid, &secret_key, 1);
-                        
-                        if (key->owner_trust == GPGME_VALIDITY_ULTIMATE) {
-                            if (!secret_key) {
-                                domain_key_valid = 8;
-                            } else {
-                                domain_key_valid = 4;
+                //if (!strcmp(uid->name, (char *) domain.c_str())) {
+                    for (nsigs=0, sig=uid->signatures; sig; sig=sig->next, nsigs++) {
+                        if (!sig->status == GPG_ERR_NO_ERROR)
+                            continue;
+                        // the signature keyid matches the required_sig_keyid
+                        if (nuids == uid_idx && domain_key_valid == -1){
+                            err = gpgme_get_key(ctx, (char *) sig->keyid, &key, 0);
+                            err = gpgme_get_key(ctx, (char *) sig->keyid, &secret_key, 1);
+                            
+                            if (key->owner_trust == GPGME_VALIDITY_ULTIMATE) {
+                                if (!secret_key) {
+                                    domain_key_valid = 8;
+                                } else {
+                                    domain_key_valid = 4;
+                                }
                             }
-                        }
-                        if (key->owner_trust == GPGME_VALIDITY_FULL) {
-                            if (!secret_key) {
-                                domain_key_valid = 8;
-                            } else {
-                                domain_key_valid = 6;
+                            if (key->owner_trust == GPGME_VALIDITY_FULL) {
+                                if (!secret_key) {
+                                    domain_key_valid = 8;
+                                } else {
+                                    domain_key_valid = 6;
+                                }
                             }
-                        }
-                        if (key->expired)
-                            domain_key_valid++;
-                        if (sig->expired)
-                            domain_key_valid = -6;
-                        if (sig->invalid)
-                            domain_key_valid = -2;
-                        if (uid->revoked || sig->revoked)
-                            domain_key_valid = -6;
-                        if (sig->status == GPG_ERR_NO_PUBKEY)
-                            domain_key_valid = -1;
-                        if (sig->status == GPG_ERR_GENERAL)
-                            domain_key_valid = -1;
-                        if (key)
-                            gpgme_key_unref (key);
-                        if (secret_key)
-                            gpgme_key_unref (secret_key);
-                    }
-                    if (!strcmp(sig->keyid, (char *) required_sig_keyid.c_str())){
-                        cout << sig->keyid << " ---- " << nuids << "\n";
-                        if (nuids == 0) {
-                            cout << user_key->owner_trust << "\n";
-                            if (user_key->owner_trust == GPGME_VALIDITY_ULTIMATE)
-                                domain_key_valid = 4;
-                            if (user_key->owner_trust == GPGME_VALIDITY_FULL)
-                                domain_key_valid = 6;
-                            if (user_key->expired)
+                            if (key->expired)
                                 domain_key_valid++;
                             if (sig->expired)
                                 domain_key_valid = -6;
@@ -509,9 +476,35 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
                                 domain_key_valid = -1;
                             if (sig->status == GPG_ERR_GENERAL)
                                 domain_key_valid = -1;
+                            if (key)
+                                gpgme_key_unref (key);
+                            if (secret_key)
+                                gpgme_key_unref (secret_key);
+                        }
+                        if (!strcmp(sig->keyid, (char *) required_sig_keyid.c_str())){
+                            cout << sig->keyid << " ---- " << nuids << "\n";
+                            if (nuids == 0) {
+                                cout << user_key->owner_trust << "\n";
+                                if (user_key->owner_trust == GPGME_VALIDITY_ULTIMATE)
+                                    domain_key_valid = 4;
+                                if (user_key->owner_trust == GPGME_VALIDITY_FULL)
+                                    domain_key_valid = 6;
+                                if (user_key->expired)
+                                    domain_key_valid++;
+                                if (sig->expired)
+                                    domain_key_valid = -6;
+                                if (sig->invalid)
+                                    domain_key_valid = -2;
+                                if (uid->revoked || sig->revoked)
+                                    domain_key_valid = -6;
+                                if (sig->status == GPG_ERR_NO_PUBKEY)
+                                    domain_key_valid = -1;
+                                if (sig->status == GPG_ERR_GENERAL)
+                                    domain_key_valid = -1;
+                            }
                         }
                     }
-                }
+                //}
             }
         }
     }
@@ -838,7 +831,8 @@ int main(int argc, char **argv)
     char* enc_from_key = (char *) "";
     char* key_to_verify = (char *) "";
     char* required_sig_keyid = (char *) "";
-    char* uid_idx = (char *) "";
+    int uid_idx = -1;
+    char* uid_any = (char *) "x";
     char* pattern = (char *) "";
     char* key = (char *) "";
     char* sig = (char *) "";
@@ -885,7 +879,11 @@ int main(int argc, char **argv)
                     //cout << optarg << " argv: " << argv[4] << "\n";
                     pattern = optarg;
                     key_to_verify = argv[3];
-                    uid_idx = argv[4];
+                    if (atoi(argv[4]) == 255) {
+                        uid_idx = -1;
+                    } else {
+                        uid_idx = atoi(argv[4]);
+                    }
                     required_sig_keyid = argv[5];
                 }
                 break;
@@ -914,7 +912,7 @@ int main(int argc, char **argv)
                     cmd = 5;
                     if (optarg) {
                         key = argv[2];
-                        uid_idx = argv[3];
+                        uid_idx = atoi(argv[3]);
                         sig = argv[4];
                     }
                 }
@@ -939,7 +937,8 @@ int main(int argc, char **argv)
         retval = gpgauth.gpgEncrypt(data_to_enc, enc_to_key, enc_from_key, sign_with_key);
     } else if (cmd == 3) {
         cout << "checking domian " << pattern << " uid (" << uid_idx << ") with keyid " << key_to_verify << " against local key " << required_sig_keyid << "\n";
-        int key_valid = gpgauth.verifyDomainKey(pattern, key_to_verify, atoi(uid_idx), required_sig_keyid);
+
+        int key_valid = gpgauth.verifyDomainKey(pattern, key_to_verify, uid_idx, required_sig_keyid);
         if (key_valid >= 0) {
             retval += "key passes validity test with a trust level of " + i_to_str(key_valid);
         } else {
@@ -950,7 +949,7 @@ int main(int argc, char **argv)
     } else if (cmd == 5) {
         /* remove a signature from a key */
         cout << key << " " << uid_idx << " " << sig;
-        retval += gpgauth.gpgDeleteUIDSign(key, atoi(uid_idx), atoi(sig));
+        retval += gpgauth.gpgDeleteUIDSign(key, uid_idx, atoi(sig));
     }
     cout << retval << "\n";
     return 0;

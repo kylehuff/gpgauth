@@ -91,7 +91,8 @@ var gpgauthBackground = {
         document.body.appendChild(plugin);
         var result = plugin.valid;
         console.log("my plugin returned: " + result);
-        /* Check to make sure all of the enabled_keys are private keys */
+        /* Check to make sure all of the enabled_keys are private keys 
+            this would occur if the key was enabled and then the secret key was deleted. */
         secret_keys = JSON.parse(plugin.getPrivateKeyList());
         for (key in gpgauth_prefs.enabled_keys.get()){
             if (key in secret_keys == false){
@@ -100,6 +101,7 @@ var gpgauthBackground = {
         }
         console.log("background initted");
     },
+
 
     // Called when a message is passed.
     onRequest: function(request, sender, sendResponse) {
@@ -111,29 +113,36 @@ var gpgauthBackground = {
             chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup.html"});
         }
         if (request.msg == 'doServerTests') {
+            if (!gpgauthBackground.gpg_elements[request.params['domain']]) {
+                gpgauthBackground.gpg_elements[request.params['domain']] = {};
+            }
             domain_keylist = plugin.getDomainKey(request.params['domain']);
             if (!domain_keylist) {
-                response = {'valid': false, 'error': 'Server key not found' };
+                response = {'valid': false, 'errorno': 1, 'error': 'Server key not found' };
+            } else if (!localStorage.enabled_keys) {
+                response = {'valid': false, 'errorno': 2, 'error': 'You have not enabled any personal keys for use with gpgAuth'};
+            } else if (!localStorage.default_key) {
+                response = {'valid': false, 'errorno': 3, 'error': 'You have not specified a default personal key to use.'};
             } else {
+                gpgauthBackground.gpg_elements[request.params['domain']]['headers'] = request.params['headers'];
                 response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
+                console.log(response);
                 chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
                 if (response['server_validated'] == true) {
                     chrome.pageAction.setIcon({
                         tabId: sender.tab.id,
                         path: 'images/badges/server_verified.png'
                     });
-                    /*gpgauthBackground.pulses[sender.tab.id] = {
-                        'timer': null,
-                        'icons': ['server_verified.png', 'default.png'],
-                        'current_icon': 1,
-                        'counter': 10
-                    }*/
-                    //gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
                     response = {'server_validated': true, 'cached': response['cached'], 'validation': response};
                 } else {
                     console.log ("err was: ", response);
                     response = {'server_validated': false, 'cached': response['cached'], 'validation': response};
                 }
+            }
+            if (response['error']) {
+                gpgauthBackground.gpg_elements[request.params['domain']]['error'] = response['error'];
+                gpgauthBackground.gpg_elements[request.params['domain']]['errorno'] = response['errorno'];
+                chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup_error.html"});
             }
         }
         if (request.msg == 'doUserLogin') {
@@ -148,21 +157,31 @@ var gpgauthBackground = {
         if (request.msg == 'enabled') {
             response = {'enabled': gpgauth_prefs.gpgauth_enabled.get() };
         }
+        if (request.msg == 'getPopupError') {
+            var re = /^.*?\/\/(.*?\.[^0-9]{3,4})\/.*?/gi
+            domain = re.exec(request.tab.url)[1];
+            response = {};
+            response.error = gpgauthBackground.gpg_elements[domain]['error'];
+            response.errorno = gpgauthBackground.gpg_elements[domain]['errorno'];
+        }
         if (request.msg == 'getPopupData'){
-            //if (request.tab){
             console.log('getPopupData request:', request);
             var re = /^.*?\/\/(.*?\.[^0-9]{3,4})\/.*?/gi
             domain = re.exec(request.tab.url)[1]
             console.log(gpgauthBackground.gpg_elements[domain]);
             response = {};
+            console.log(gpgauthBackground.gpg_elements[domain]['headers']);
             response['popup_data'] = { 'Domain': domain, 
                 'Public Key' : gpgauthBackground.gpg_elements[domain]['domain_key'],
                 'Trust Level': gpgauthBackground.gpg_elements[domain]['domain_key_trust']
             };
             response['validation'] = {
+                'domain': domain,
                 'server_validated': gpgauthBackground.gpg_elements[domain]['server_validated'],
                 'configured_trust': gpgauthBackground.gpg_elements[domain]['trust_level'],
-                'domain_key_trust': gpgauthBackground.gpg_elements[domain]['domain_key_trust']
+                'domain_key_trust': gpgauthBackground.gpg_elements[domain]['domain_key_trust'],
+                'headers': gpgauthBackground.gpg_elements[domain]['headers'],
+                'tab': request.tab,
             }
         }
         // Return the response and let the connection be cleaned up.
@@ -324,7 +343,6 @@ var gpgauthBackground = {
                 return this.gpg_elements[domain];
             }
         } else {
-            console.log("CACHED");
             this.gpg_elements[domain]['cached'] = true;
             return this.gpg_elements[domain];
         }
@@ -377,9 +395,6 @@ var gpgauthBackground = {
     },
 
     generate_random_token: function( e ) {
-        var validchars = "";
-        var startvalid = "";
-
         var minsize, maxsize, count, actualsize, random_value;
         minsize = parseInt(60);
         maxsize = parseInt(100);

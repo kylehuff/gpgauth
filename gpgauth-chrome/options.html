@@ -13,7 +13,6 @@ $(function(){
     function buildPrivateKeylist(){
         var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
 
-        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
         if (!pkeylist) {
             // if the parsing failed, create an empty keylist
             pkeylist = {};
@@ -106,6 +105,12 @@ $(function(){
             $(this).find('#trust-list').children().eq(trust_level).addClass('selected');
             $(this).find('#trust-level-desc').children().eq(trust_level).addClass('selected');
         });
+        $('#trust-level-sel').mouseenter( function(){
+            $('#trust-level-desc').slideToggle(600);
+        }).mouseleave(function(){
+            $('#trust-level-desc').slideToggle(600);
+        });
+        
         $('.level').click(function(e){
             $(this).parent().find('.selected').removeClass('selected');
             $(this).addClass('selected');
@@ -349,8 +354,15 @@ $(function(){
     $('#private_keylist').accordion({ header: 'h3.private_keylist', alwaysOpen: false,
                 autoheight:false, clearStyle:true, active:'.ui-accordion-left',
                 collapsible: true });
-
-    $('#tabs').tabs();
+    if (window.location.search.substring) {
+        var query_string = {};
+        window.location.search.replace(
+            new RegExp("([^?=&]+)(=([^&]*))?", "g"),
+            function($0, $1, $2, $3) { query_string[$1] = $3; }
+        );
+    }
+    selected_tab = query_string.tab ? query_string.tab : 0;
+    $('#tabs').tabs({ selected: selected_tab });
     $('.enable-check').button().next().next().button({
             text: false,
             icons: {
@@ -370,18 +382,57 @@ $(function(){
     $('.trust').click(function(e){
         e.stopPropagation();
     });
-
-
-
+    $('#window_functions')[0].innerHTML += "<input type='button' id='close' value='Finished'>";
+    $('#close').button().click(function(e) { window.close(); });
+    if (query_string.helper) {
+        function bounce(elem_class, left, top, perpetual) {
+            nleft = $(elem_class).parent().offset().left - left;
+            ntop = $(elem_class).parent().offset().top - top;
+            $("#error_help").parent().css('left', nleft).css('top', ntop).
+                effect("bounce", {times: 1, direction: 'up', distance: 8 }, 1200, function(){ if (perpetual) { bounce(elem_class, left, top, perpetual) } } )
+        }
+        helper_arrow = document.createElement('div');
+        helper_arrow.innerHTML = '' +
+            '<div id="error_help" style="text-align: center; display: inline; width: 100%; text-shadow: #000 1px 1px 1px; color: #fff; font-size: 12px;">' +
+            '<div id="help_text" style="display: block; -moz-border-radius: 4px; -webkit-border-radius: 4px; z-index: 10; padding: 2px 5px 2px 5px; height: 20px; margin-right: -5px; background-color: #ff6600; min-width: 130px;"></div>' +
+            '<span style="margin-left: 94px;"><img width="30px" src="/images/help_arrow.png"></span>' +
+            '</div>';
+        helper_arrow.style.position = 'absolute';
+        helper_arrow.style.zIndex = 1000;
+        switch(query_string.helper){
+            case 'enable':
+                $(helper_arrow).find('#help_text')[0].innerHTML = "Click to enable key";
+                document.body.appendChild(helper_arrow);
+                $('.enable-check').click(function() { $(helper_arrow).stop(true, true).stop(true, true).hide(); });
+                bounce('.enable-check', 75, 45, true);
+                break;
+            case 'default':
+                $(helper_arrow).find('#help_text')[0].innerHTML = "Click to set default key";
+                $('.default-check').click(function() { $(helper_arrow).stop(true, true).stop(true, true).hide(); });
+                document.body.appendChild(helper_arrow);
+                bounce('.default-check', 40, 45, true);
+                break;
+        }
+    }
+    
 });
 </script>
 <style>
-body{ font: 62.5% "Trebuchet MS", sans-serif;}
+body{
+    font: 62.5% "Trebuchet MS", sans-serif;
+    min-width: 640px;
+    margin: 4px 10px 4px 10px;
+}
+.ui-tabs .ui-tabs-hide {
+     display: none;
+}
+
 #header_image {
     height: 74px;
     width: 74px;
     padding-right: 6px;
 }
+
 #tabs-1 {
     font-size: 14px;
 }
@@ -433,6 +484,7 @@ body{ font: 62.5% "Trebuchet MS", sans-serif;}
 #trust-level-desc {
     color: #000;
     text-align: left;
+    display: none;
 }
 
 .trust-level-desc {
@@ -591,7 +643,7 @@ span.trust .ui-button-text {
     <div id="tabs-1">
         <span id='enable-gpgauth'>Enable gpgAuth: <input type='checkbox' id='enable-gpgauth-check'><label for='enable-gpgauth-check'></label><br/><br/>
         <div style="width:100%; float:left;text-align: center;">
-        <div id="trust-level-sel">
+        <div id="trust-level-sel" style="min-width: 600px;">
             <span id="trust-header">
                 gpgAuth Minimum Trust Level
             </span><br/><br/>
@@ -664,4 +716,6 @@ span.trust .ui-button-text {
 <div id="delsig-confirm" title="Delete this Signature?">
 	<p><span class="ui-icon ui-icon-help" style="float:left; margin:0 7px 20px 0;"></span><span id='delsig-text'>Are you sure you wish to delete this signature?<span></p>
 </div>
+<br/>
+<div id="window_functions" style="width:100%; text-align:right;"></div>
 </html>

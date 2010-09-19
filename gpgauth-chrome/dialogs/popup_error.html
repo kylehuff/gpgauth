@@ -1,0 +1,86 @@
+<style>
+body {
+    min-width:357px;
+    overflow-x:hidden;
+    position:relative;
+    text-align: center;
+    background-color: #000;
+    margin-left: auto; margin-right: auto;
+    font-family:sans-serif;
+    margin:5px;
+    padding:8px;
+}
+
+#error {
+    text-align: left;
+    font-weight: bold;
+    font-family: sans-serif;
+    font-size: 16px;
+    color: white;
+    padding: 10px;
+    margin-left: auto; margin-right: auto;
+    margin-top: 5px;
+    text-shadow: #333 1px 1px 1px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+    -moz-box-shadow:#666 2px 2px 2px;
+    -webkit-box-shadow: #666 2px 2px 2px;
+    background: #F58400 url('../images/menumask.png') repeat-x;
+    border: 1px solid #FF8400;
+}
+
+#description {
+    font-weight: normal;
+    margin-bottom: 5px;
+}
+
+#options {
+    float: right;
+    position: relative;
+    top: -15px;
+}
+
+a:link {
+    color: blue;
+}
+a:visited {
+    color: yellow;
+}
+
+</style>
+<body>
+    <div id="error">
+        <div id="title"></div>
+        <hr/>
+        <div id="description">
+        </div>
+    </div>
+    <br/><br/>
+    <div id="error_help" style="min-width: 120px; text-shadow: #000 1px 1px 1px; font-size: 80%; color: #fff;">
+        <div id="help_text" style="-moz-border-radius: 4px; -webkit-border-radius: 4px; z-index: 10; padding: 2px 5px 2px 5px; height: 18px; margin-right: -5px; background-color: #ff6600; min-width: 120px;">Click to set default Key</div>
+        <span style="margin-left: 86px;"><img src='../images/help_arrow.png'></span>
+    </div>
+</body>
+<script>
+    chrome.tabs.getSelected(null, function(_tab) {
+        chrome.extension.sendRequest({msg: 'getPopupError', tab: _tab},
+            function(response) {
+                if (response.result.errorno) {
+                    title = document.getElementById('title');
+                    desc = document.getElementById('description');
+                    title.innerHTML = response.result.error;
+                    switch(response.result.errorno) {
+                        case 1:
+                            desc.innerHTML = "You do not have the public key for this domain.";
+                            break;
+                        case 2:
+                            desc.innerHTML = "In order for gpgAuth to determine the trust for this domain, you must enable at least 1 private key in the options window<br/\><br/\><a href='" + chrome.extension.getURL('options.html') + "?tab=1&helper=enable'>Click here to go to the options page</a>";
+                            break;
+                        case 3:
+                            desc.innerHTML = "In order to perform verification of a domain, gpgAuth must know your desired default key.<br/\><br/\><a href='" + chrome.extension.getURL('options.html') + "?tab=1&helper=default'>Click here to go to the options page</a>";
+                            break;
+                    }
+                }
+            })
+    });
+</script>
