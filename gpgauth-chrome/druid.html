@@ -1,0 +1,250 @@
+<html>
+<head>
+<title>gpgAuth configuration helper</title>
+<link type="text/css" href="jquery/css/ui-darkness/jquery-ui-1.8.4.custom.css" rel="stylesheet" />
+<script type="text/javascript" src="jquery/js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="jquery/js/jquery-ui-1.8.4.custom.min.js"></script>
+<script>
+    var ext = chrome.extension.getBackgroundPage();
+    $(function(){
+        $('#tabs').tabs();
+        $('.next-button').button().click(function(e) {
+            selected = $("#tabs").tabs("option", "selected");
+            end = $("#tabs").tabs("length");
+            if (selected + 1 < end) {
+                $("#tabs").tabs("option", "selected",  selected + 1);
+            } else {
+                alert('findished');
+            }
+        });
+
+        $('#trust-level-sel').ready(function(e){
+            trust_level = window.ext.gpgauth_prefs.trust_level.get();
+            $(this).find('#trust-list').children().eq(trust_level).addClass('selected');
+            $(this).find('#trust-level-desc').children().eq(trust_level).addClass('selected');
+        });
+        $('.level').click(function(e){
+            $(this).parent().find('.selected').removeClass('selected');
+            $(this).addClass('selected');
+            $('#trust-level-desc').children('.selected').removeClass('selected');
+            current_index = $(this).parent().find('span').index(this);
+            $('#trust-level-desc').children().eq(current_index).addClass('selected');
+            window.ext.gpgauth_prefs.trust_level.set(current_index);
+        });
+        $('.trust-level-desc').click(function(e){
+            $(this).parent().find('.selected').removeClass('selected');
+            $(this).addClass('selected');
+            current_index = $(this).parent().find('div').index(this);
+            $('#trust-list').children('.selected').removeClass('selected');
+            $('#trust-list').children().eq(current_index).addClass('selected');
+            window.ext.gpgauth_prefs.trust_level.set(current_index);
+        });
+
+    });
+</script>
+<style>
+body{
+    font: 62.5% "Trebuchet MS", sans-serif;
+    min-width: 640px;
+    margin: 4px 10px 4px 10px;
+}
+
+.bound-box {
+    text-align: center;
+    margin-left: auto; margin-right: auto;
+    font-size: 14px;
+}
+
+#trust-level-sel {
+    text-align: center;
+    margin-left: auto; margin-right: auto;
+    font-family:sans-serif;
+    margin-top:5px;
+    background:#fff;
+    display:inline-block;
+    padding:8px;
+    cursor:pointer;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+    -moz-box-shadow:#666 2px 2px 2px;
+    -webkit-box-shadow:#666 2px 2px 2px;
+}
+
+#trust-header {
+    font-size: 16px;
+    text-align: left;
+    float:left;
+    clear: right;
+    color:black;
+    text-shadow:#999 1px 1px 1px;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
+}
+
+#trust-list .selected {
+  color:black !important;
+  font-weight:bold;
+}
+
+#trust-list {
+
+}
+
+#trust-list .level {
+    padding:5px;
+    color:gray;
+}
+
+#trust-list .level:hover {
+    font-weight:bold;
+}
+
+#trust-level-desc {
+    color: #000;
+    text-align: left;
+}
+
+.trust-level-desc {
+    min-height: 30px;
+    border:1px solid #ddd;
+    font-family:sans-serif;
+    color:white;
+    padding:10px;
+    text-shadow:#999 1px 1px 1px;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
+    background: #0078a3  url('images/menumask.png') repeat-x;
+    width: 600px;
+}
+
+.trust-level-desc:hover {
+    background-color: #1C1;
+}
+
+#trust-level-desc .selected {
+    background-color: #F58400;
+}
+
+#trust-level-desc .selected .trust-level {
+    color:#000;
+    text-shadow:#FFE 1px 1px 1px;
+}
+
+.trust-level {
+    font-size:32px;
+    padding-right: 6px;
+    float:left;
+}
+
+.trust-desc {
+    clear:right;
+}
+</style>
+</head>
+<body>
+
+<div id="tabs">
+    <ul>
+        <li><a href="#tabs-1">Step 1: Trust</a></li>
+        <li><a href="#tabs-2">Step 2: Your Keys</a></li>
+        <li><a href="#tabs-3">Step 3: Provider Keys</a></li>
+    </ul>
+    <div id="tabs-1">
+        <div id="step-1" style="text-align: center;">
+            <div class="ui-accordion-left"></div>
+            <div class="bound-box">
+                <p>Welcome to the gpgAuth configuration helper - this will walk you through the items that need configuration before you can begin using gpgAuth.</p>
+                <p>Select a trust level:</p>
+                <div style="width:100%; float:left;text-align: center;">
+                <div id="trust-level-sel" style="min-width: 600px;">
+                    <span id="trust-header">
+                        gpgAuth Minimum Trust Level
+                    </span><br/><br/>
+                    <div id="trust-level-desc">
+                        <div class="trust-level-desc" id='trust-0'>
+                            <span class="trust-level">0</span>
+                            <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys (this is the most stringent/secure)</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-1'>
+                            <span class="trust-level">1</span>
+                            <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys - it is okay if that key is expired</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-2'>
+                            <span class="trust-level">2</span>
+                            <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-3'>
+                            <span class="trust-level">3</span>
+                            <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust - it is okay if that key has expired</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-4'>
+                            <span class="trust-level">4</span>
+                            <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-5'>
+                            <span class="trust-level">5</span>
+                            <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys that has expired</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-6'>
+                            <span class="trust-level">6</span>
+                            <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-7'>
+                            <span class="trust-level">7</span>
+                            <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust that has expired</span>
+                        </div>
+                        <div class="trust-level-desc" id='trust-8'>
+                            <span class="trust-level">8</span>
+                            <span class="trust-desc">The Primary UID matching the domain may not be signed but otherwise meets the web of trust
+                                requirements (i.e.: signed by a key that you fully trust)</span>
+                        </div>
+
+                    </div>
+                </div>
+                </div>
+                <div style="clear:both">&nbsp;</div>
+            </div>
+        </div>
+        <div class="controls" style="width: 100%; text-align: right; padding-top: 15px;">
+            <input type="button" class="next-button" value="Next: Your Keys"/>
+        </div>
+    </div>
+    <div id="tabs-2">
+        <div id="step-2" style="text-align: center;">
+            <div class="ui-accordion-left"></div>
+            <div class="bound-box">
+                <p id="personal-key-desc">In order to use gpgAuth you must have a set of Personal Keys</p>
+                <iframe id="options_frame" style="width: 100%; min-height: 500px; height:80%; border: none;">Loading...</iframe>
+                <script>
+                    $(function(){
+                        $('#personal-key-desc').ready(function(){
+                            $("#options_frame").attr("src", chrome.extension.getURL('options.html') + "?tab=1");
+                        });
+                        $("#options_frame").load(function(){
+                            options_frame = this.contentWindow.document.body;
+                            $(options_frame).css("width", "90%")
+                            $(options_frame).css("margin", "auto")
+                            //console.log(this.contentWindow.document.body.clientWidth);
+                            options_frame.removeChild($(options_frame).find("#header")[0]);
+                            ul = $(options_frame).find("ul");
+                            ul.parent()[0].removeChild(ul[0]);
+                            buttons = $(options_frame).find("#window_functions");
+                            buttons.parent()[0].removeChild(buttons[0]);
+                        });
+                    });
+                </script>
+            </div>
+        </div>
+        <div class="controls" style="width: 100%; text-align: right; padding-top: 15px;">
+            <input type="button" class="next-button" value="Next: Provider Keys"/>
+        </div>
+    </div>
+    <div id="tabs-3">
+        <div class="controls" style="width: 100%; text-align: right; padding-top: 15px;">
+            <input type="button" class="next-button" value="Done"/>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

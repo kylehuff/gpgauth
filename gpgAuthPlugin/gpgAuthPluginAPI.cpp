@@ -1,9 +1,7 @@
 #include "BrowserObjectAPI.h"
 #include "variant_list.h"
 #include "DOM/JSAPI_DOMDocument.h"
-#include "gpgauth.h"
 #include "gpgAuthPluginAPI.h"
-
 
 gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
 {
@@ -15,6 +13,10 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
     registerMethod("gpgDecrypt", make_method(this, &gpgAuthPluginAPI::gpgDecrypt));
     registerMethod("gpgSignUID", make_method(this, &gpgAuthPluginAPI::gpgSignUID));
     registerMethod("gpgDeleteUIDSign", make_method(this, &gpgAuthPluginAPI::gpgDeleteUIDSign));
+    registerMethod("gpgGenKey", make_method(this, &gpgAuthPluginAPI::gpgGenKey));
+
+    registerEvent("onkeygenprogress");
+    registerEvent("onkeygencomplete");
 
     // Read-only property
     registerProperty("version",
@@ -64,9 +66,11 @@ std::string gpgAuthPluginAPI::getDomainKey(std::string domain){
 */
 int gpgAuthPluginAPI::verifyDomainKey(std::string domain, 
         std::string domain_key_fpr, long uid_idx,
-        std::string required_sig_keyid) {
+        std::string required_sig_keyid)
+{
     gpgAuth gpgauth;
-    return gpgauth.verifyDomainKey(domain, domain_key_fpr, uid_idx, required_sig_keyid);
+    return gpgauth.verifyDomainKey(domain, domain_key_fpr, uid_idx, 
+        required_sig_keyid);
 }
 
 /*
@@ -76,26 +80,86 @@ int gpgAuthPluginAPI::verifyDomainKey(std::string domain,
 */
 std::string gpgAuthPluginAPI::gpgEncrypt(std::string data, 
         std::string enc_to_keyid, std::string enc_from_keyid,
-        std::string sign) {
+        std::string sign)
+{
     gpgAuth gpgauth;
     return gpgauth.gpgEncrypt(data, enc_to_keyid, enc_from_keyid, sign);
 }
 
-std::string gpgAuthPluginAPI::gpgDecrypt(std::string data) {
+std::string gpgAuthPluginAPI::gpgDecrypt(std::string data)
+{
     gpgAuth gpgauth;
     return gpgauth.gpgDecrypt(data);
 }
 
 std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
-        std::string with_keyid, long local_only, long trust_sign, std::string trust_sign_level) {
-        gpgAuth gpgauth;
-        return gpgauth.gpgSignUID(keyid, sign_uid, with_keyid, local_only, trust_sign, trust_sign_level);
+    std::string with_keyid, long local_only, long trust_sign, 
+    std::string trust_sign_level)
+{
+    gpgAuth gpgauth;
+    return gpgauth.gpgSignUID(keyid, sign_uid, with_keyid, local_only, 
+        trust_sign, trust_sign_level);
 }
 
-std::string gpgAuthPluginAPI::gpgDeleteUIDSign(std::string keyid, long sign_uid,
-        long signature) {
-        gpgAuth gpgauth;
-        return gpgauth.gpgDeleteUIDSign(keyid, sign_uid, signature);
+std::string gpgAuthPluginAPI::gpgDeleteUIDSign(std::string keyid,
+    long sign_uid, long signature) {
+    gpgAuth gpgauth;
+    return gpgauth.gpgDeleteUIDSign(keyid, sign_uid, signature);
+}
+
+void gpgAuthPluginAPI::progress_cb(void *self, const char *what, int type, int current, int total)
+{
+    if (!strcmp (what, "primegen") && !current && !total
+        && (type == '.' || type == '+' || type == '!'
+        || type == '^' || type == '<' || type == '>')) {
+        gpgAuthPluginAPI* API = (gpgAuthPluginAPI*) self;
+        API->FireEvent("onkeygenprogress", FB::variant_list_of(type));
+    }
+    if (!strcmp (what, "complete")) {
+        gpgAuthPluginAPI* API = (gpgAuthPluginAPI*) self;
+        API->FireEvent("onkeygencomplete", FB::variant_list_of(what));
+    }
+}
+
+void gpgAuthPluginAPI::threaded_gpgGenKey(genKeyParams params)
+{
+    gpgAuth gpgauth;
+    
+    string result = gpgauth.gpgGenKey(params.key_type, params.key_length,
+        params.subkey_type, params.subkey_length, params.name_real,
+        params.name_comment, params.name_email, params.expire_date,
+        params.passphrase, this, &gpgAuthPluginAPI::progress_cb
+    );
+
+}
+
+std::string gpgAuthPluginAPI::gpgGenKey(std::string key_type, 
+        std::string key_length, std::string subkey_type, 
+        std::string subkey_length, std::string name_real,
+        std::string name_comment, std::string name_email, 
+        std::string expire_date, std::string passphrase)
+{
+    gpgAuth gpgauth;
+
+    genKeyParams params;
+    
+    params.key_type = key_type;
+    params.key_length = key_length;
+    params.subkey_type = subkey_type;
+    params.subkey_length = subkey_length;
+    params.name_real = name_real;
+    params.name_comment = name_comment;
+    params.name_email = name_email;
+    params.expire_date = expire_date;
+    params.passphrase = passphrase;
+    
+    boost::thread genkey_thread(
+        boost::bind(
+            &gpgAuthPluginAPI::threadCaller,
+            this, params)
+    );
+
+    return "queued";
 }
 
 // Read-only property version

@@ -4,7 +4,9 @@
 <link type="text/css" href="jquery/css/ui-darkness/jquery-ui-1.8.4.custom.css" rel="stylesheet" />
 <script type="text/javascript" src="jquery/js/jquery-1.4.2.min.js"></script>
 <script type="text/javascript" src="jquery/js/jquery-ui-1.8.4.custom.min.js"></script>
+<script type="text/javascript" src="jquery/js/jquery.passwordStrength.js"></script>
 <script type="text/javascript">
+/* <![CDATA[ */
 var ext = chrome.extension.getBackgroundPage();
 $(function(){
     $('#enable-gpgauth-check')[0].checked = 
@@ -27,7 +29,154 @@ $(function(){
         enabled_keys = window.ext.gpgauth_prefs.enabled_keys.get();
 
         private_keylist = document.getElementById('private_keylist');
-        
+
+        // Create the key-generate button and dialog
+        genkey_div = document.createElement('div');
+        genkey_div.style.padding = "8px 0 20px 0";
+        genkey_button = document.createElement('input');
+        genkey_button.setAttribute('value', 'Generate New Key');
+        genkey_button.setAttribute('type', 'button');
+        $(genkey_button).button().click(function(e){
+            $("#genkey-dialog").dialog({
+                "buttons": { 
+                    "Create": function() {
+                        form = $(this).find("#genkey-form")[0];
+                        $(form).parent().before("<div id=\"genkey-status\"> </div>");
+                        error = "";
+                        if (!form.uid_0_name.value){
+                            error += "Name Required<br>";
+                            $(form.uid_0_name).addClass("input-error");
+                        }
+                        if (!form.uid_0_email.value){
+                            error += "Email Required<br>";
+                            $(form.uid_0_email).addClass("input-error");
+                        }
+                        if (form.passphrase.value != form.pass_repeat.value){
+                            $(form.passphrase).addClass("input-error");
+                            $(form.pass_repeat).addClass("input-error");
+                            $(form.passphrase).next()
+                                .find("#passwordStrength-text")
+                                .html("Passphrases do not match")
+                                .css({"color": "#f00"});
+                            error += "Passphrases do not match<br>";
+                        }
+                        if (error.length) {
+                            $("#genkey-status").html(error)[0].style.display="block";
+                            return false;
+                        }
+                        chrome.extension.onConnect.addListener(function(port) {
+                            port.onMessage.addListener(function(msg) {
+                                if (msg.type == "progress") {
+                                    data = msg.data;
+                                    if (!isNaN(data))
+                                        data = String.fromCharCode(data);
+                                    data += " ";
+                                    $("#genkey_progress")[0].innerHTML += data;
+                                }
+                            });
+                        });
+                        $("#genkey-form").find(".open").trigger("click");
+                        console.log("going to create a key with the following details:" + '\n' +
+                            "Primary Key:", form.publicKey_algo.value + 
+                              ' (' + form.publicKey_size.value + ')\n' +
+                            "Sub Key:", form.subKey_algo.value + 
+                              ' (' + form.subKey_size.value + ')\n' +
+                            "name:", form.uid_0_name.value + '\n' +
+                            "comment: [Comments not supported yet; this will be blank]\n" +
+                            "email:", form.uid_0_email.value + '\n' +
+                            "passphrase:", form.passphrase.value +  '\n' +
+                            "expiration:", "Key will expire in " + form.key_expire.value + ' days');
+                        $("#genkey-dialog").dialog("option", "minHeight", 250);
+                        $("#genkey-status").html(error)[0].style.display="block";
+                        $("#genkey-status").html("Building key, please wait..");
+                        $("#genkey-status").after("<div id='genkey-status_detail' style=\"font-size: 12px; color:#fff;padding: 20px;\">This may take a long time (5 minutes or more) to complete depending on the selected options. Please be patient while the key is created. It is safe to close this window, key generation will continue in the background.<br><br><div id='genkey_progress' style='height:auto;display:block;'></div></div>");
+                        $(form)[0].style.display = 'none';
+                        $("#genkey-dialog")[0].style.height = "20";
+                        $("#genkey-dialog")[0].style.display = "none";
+                        chrome.extension.sendRequest({msg: 'async-gpgGenKey',
+                                data: {'publicKey_algo' : form.publicKey_algo.value,
+                                'publicKey_size' : form.publicKey_size.value,
+                                'subKey_algo' : form.subKey_algo.value,
+                                'subKey_size' : form.subKey_size.value, 
+                                'uid_0_name' : form.uid_0_name.value,
+                                'uid_0_email' : form.uid_0_email.value, 
+                                'key_expire' : form.key_expire.value,
+                                'passphrase' : form.passphrase.value }
+                            }, function(response) { 
+                                if (response.result == "queued") {
+                                    $("#genkey-dialog").dialog("option", "buttons", { 
+                                        "Close": function() {
+                                            $("#genkey-dialog").dialog("close");
+                                        }
+                                    });
+                                }   
+                            });
+                    },
+                    Cancel: function() {
+                        $("#genkey-dialog").dialog("close");
+                    }
+                },
+                "beforeClose": function () {
+                    $(this).dialog("destroy");
+                    $("#genkey-status_detail").remove()
+                    $("#genkey-status").remove()
+                    $(this).find("#genkey-form")[0].style.display="block";
+                    $("#genkey-dialog").dialog({
+                        resizable: false,
+                        minHeight: 250,
+                        width: 630,
+                        modal: true,
+                        autoOpen: false
+                    });
+                }
+            });
+            
+            $("#genkey-form").children('input').removeClass('input-error');
+            $("#genkey-form")[0].reset();
+            $('.key-algo').each(function(){
+                $(this)[0].options.selectedIndex = $(this)[0].options.length - 1;
+                }).change(function(){
+                    if ($(this)[0].options.selectedIndex == 0){
+                        $(this).parent().next().find('.key-size')[0].options.selectedIndex = 0;
+                        $(this).parent().next().find('.key-size')[0].children(1).disabled = true;
+                        $(this).parent().next().find('.key-size')[0].children(2).disabled = true;
+                    } else {
+                        $(this).parent().next().find('.key-size')[0].children(1).disabled = false;
+                        $(this).parent().next().find('.key-size')[0].children(2).disabled = false;
+                        $(this).parent().next().find('.key-size')[0].options.selectedIndex = 1;
+                    }
+                });
+            $("#genkey-dialog").dialog('open');
+            $("#genkey-form").find(".open").trigger("click");
+        });
+        $("#genkey-dialog").dialog({
+            resizable: false,
+            minHeight: 250,
+            width: 630,
+            modal: true,
+            autoOpen: false
+        });
+        $('.passphrase').passwordStrength("#pass_repeat");
+        genkey_div.appendChild(genkey_button);
+        private_keylist.appendChild(genkey_div);
+
+        $('ul.expand').each(function(){
+            $('li.trigger', this).filter(':first').addClass('top').end().filter(':not(.open)').next().hide();
+            $('li.trigger', this).click(function(){
+                height = ($("#genkey-status")) ? $("#genkey-status").height() : 0;
+                if($(this).hasClass('open')) {
+                    $(this).removeClass('open').next().slideUp();
+                    $("#genkey-dialog").dialog("option", "minHeight", 250 + height);
+                } else {
+                    $(this).parent().find('li.trigger').removeClass('open').next().filter(':visible').slideUp();
+                    $(this).addClass('open').next().slideDown();
+                    $("#genkey-dialog").dialog("option", "minHeight", 410 + height);
+                }
+            });
+        });
+        // End key generation dialog
+
+        // Build keylist accordion
         var prev_key = null;
         for (key in pkeylist){
             keyobj = document.createElement('div');
@@ -37,6 +186,8 @@ $(function(){
                 keyobj.className = 'invalid-key';
             if (parseInt(keylist[key].invalid) == 1)
                 keyobj.className = 'invalid-key';
+            if (parseInt(keylist[key].revoked) == 1)
+                $(keyobj).addClass('invalid-key');
             keyobj.className += ' primary_key';
             enabled = (key in enabled_keys) ? " checked" : "";
             status_text = (enabled) ? "Enabled" : "Disabled";
@@ -70,7 +221,7 @@ $(function(){
                 uidobj = document.createElement('div');
                 uidobj.setAttribute('class', 'uid');
                 uidobj.setAttribute('id', key + '-' + uid);
-                if (parseInt(keylist[key].expired) == 1)
+                if (parseInt(keylist[key].expired) == 1 || parseInt(keylist[key].uids[uid].revoked))
                     uidobj.className += ' invalid-key';
                 email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
                     "  - (no email address provided)";
@@ -156,6 +307,8 @@ $(function(){
             if (parseInt(keylist[key].expired) == 1)
                 $(keyobj).addClass('invalid-key');
             if (parseInt(keylist[key].invalid) == 1)
+                $(keyobj).addClass('invalid-key');
+            if (parseInt(keylist[key].revoked) == 1)
                 $(keyobj).addClass('invalid-key');
             $(keyobj).addClass('primary_key');
             if (key == openKey) {
@@ -255,7 +408,7 @@ $(function(){
                 $("#delsig-confirm").find('#delsig-text')[0].innerHTML += "<br><br><span class='ui-icon ui-icon-alert' style='float:left; margin:0 7px 20px 0;'></span>This signature was made with a key that does not belong to you; This action cannot be undone without refreshing the keylist from a remote source.";
                 $("#delsig-confirm").dialog("option", "height", "200");
             }
-            $("#delsig-confirm").dialog("option", "buttons", { "Delete": function() { 
+            $("#delsig-confirm").dialog("option", "buttons", { "Delete": function() {
                         delsig_result = window.ext.plugin.gpgDeleteUIDSign(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1);
                         console.log(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1)
                         //$(calling_button).parent().parent()[0].removeChild($(calling_button).parent()[0]);
@@ -416,6 +569,7 @@ $(function(){
     }
     
 });
+/* ]]> */
 </script>
 <style>
 body{
@@ -427,7 +581,7 @@ body{
      display: none;
 }
 
-#header_image {
+#header-image {
     height: 74px;
     width: 74px;
     padding-right: 6px;
@@ -626,13 +780,67 @@ span.trust .ui-button-text {
 
 }
 
+.help-text {
+    padding: 0 0 0 12px;
+    font-size: 10px;
+}
 
+#genkey-form input[type=text], input[type=password] {
+    width: 250px;
+}
+
+#genkey-status {
+    padding: 2px 0 2px 12px;
+    display:none;
+    width: 98.2%;
+    background-color: #FFAF0F;
+    color: #000;
+}
+
+.input-error {
+    border: 2px solid #f20;
+}
+
+ul.expand { padding:0; margin:0; list-style:none; }
+ul.expand li { padding:0; margin:0; }
+ul.expand li.trigger.top { margin-top:0; }
+ul.expand li.trigger
+{
+    background:url(images/expand-collapse.gif) 0 3px no-repeat;
+    cursor:pointer;
+    padding:0 0 0 15px;
+    margin:7px 0 0 0;
+}
+ul.expand li.trigger h4
+{
+    color:#666;
+}
+ul.expand li.trigger.open h4
+{
+    color:inherit;
+}
+ul.expand li.trigger.open
+{
+    background-position:0 -997px;
+}
+ul.expand ul
+{
+    list-style:disc inside;
+    line-height:18px;
+    padding:0 0 6px 10px;
+}
+.option ul {
+    padding: 0;
+    list-style: none;
+}
 </style>
 </head>
 <body>
 
-<div id="header"><img src="images/gpgauth-128.png" id="header_image"/><h1 style="display: inline; top: -18px; position: relative;">gpgAuth Options</h1></div>
-
+<div id="header">
+    <img src="images/gpgauth-128.png" id="header-image"/>
+    <h1 style="display: inline; top: -18px; position: relative;">gpgAuth Options</h1>
+</div>
 
 <div id="tabs">
     <ul>
@@ -641,67 +849,64 @@ span.trust .ui-button-text {
         <li><a href="#tabs-3">Public Keys</a></li>
     </ul>
     <div id="tabs-1">
-        <span id='enable-gpgauth'>Enable gpgAuth: <input type='checkbox' id='enable-gpgauth-check'><label for='enable-gpgauth-check'></label><br/><br/>
+        <span id='enable-gpgauth'>Enable gpgAuth: <input type='checkbox' id='enable-gpgauth-check'/><label for='enable-gpgauth-check'></label></span><br/><br/>
         <div style="width:100%; float:left;text-align: center;">
-        <div id="trust-level-sel" style="min-width: 600px;">
-            <span id="trust-header">
-                gpgAuth Minimum Trust Level
-            </span><br/><br/>
-            <div id="trust-list">
-                <span class="level"> 0 </span>
-                <span class="level"> 1 </span>
-                <span class="level"> 2 </span>
-                <span class="level"> 3 </span>
-                <span class="level"> 4 </span>
-                <span class="level"> 5 </span>
-                <span class="level"> 6 </span>
-                <span class="level"> 7 </span>
-                <span class="level"> 8 </span>
-            </div>
-            <div id="trust-level-desc">
-                <div class="trust-level-desc" id='trust-0'>
-                    <span class="trust-level">0</span>
-                    <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys (this is the most stringent/secure)</span>
+            <div id="trust-level-sel" style="min-width: 600px;">
+                <span id="trust-header">
+                    gpgAuth Minimum Trust Level
+                </span><br/><br/>
+                <div id="trust-list">
+                    <span class="level"> 0 </span>
+                    <span class="level"> 1 </span>
+                    <span class="level"> 2 </span>
+                    <span class="level"> 3 </span>
+                    <span class="level"> 4 </span>
+                    <span class="level"> 5 </span>
+                    <span class="level"> 6 </span>
+                    <span class="level"> 7 </span>
+                    <span class="level"> 8 </span>
                 </div>
-                <div class="trust-level-desc" id='trust-1'>
-                    <span class="trust-level">1</span>
-                    <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys - it is okay if that key is expired</span>
+                <div id="trust-level-desc">
+                    <div class="trust-level-desc" id='trust-0'>
+                        <span class="trust-level">0</span>
+                        <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys (this is the most stringent/secure)</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-1'>
+                        <span class="trust-level">1</span>
+                        <span class="trust-desc">The UID matching the domain must be signed by one of your ultimately trusted keys - it is okay if that key is expired</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-2'>
+                        <span class="trust-level">2</span>
+                        <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-3'>
+                        <span class="trust-level">3</span>
+                        <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust - it is okay if that key has expired</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-4'>
+                        <span class="trust-level">4</span>
+                        <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-5'>
+                        <span class="trust-level">5</span>
+                        <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys that has expired</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-6'>
+                        <span class="trust-level">6</span>
+                        <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-7'>
+                        <span class="trust-level">7</span>
+                        <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust that has expired</span>
+                    </div>
+                    <div class="trust-level-desc" id='trust-8'>
+                        <span class="trust-level">8</span>
+                        <span class="trust-desc">The Primary UID matching the domain may not be signed but otherwise meets the web of trust
+                            requirements (i.e.: signed by a key that you fully trust)</span>
+                    </div>
                 </div>
-                <div class="trust-level-desc" id='trust-2'>
-                    <span class="trust-level">2</span>
-                    <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust</span>
-                </div>
-                <div class="trust-level-desc" id='trust-3'>
-                    <span class="trust-level">3</span>
-                    <span class="trust-desc">The UID matching the domain may be signed by one of your keys that has only a Full or Marginal trust - it is okay if that key has expired</span>
-                </div>
-                <div class="trust-level-desc" id='trust-4'>
-                    <span class="trust-level">4</span>
-                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys</span>
-                </div>
-                <div class="trust-level-desc" id='trust-5'>
-                    <span class="trust-level">5</span>
-                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your ultimately trusted keys that has expired</span>
-                </div>
-                <div class="trust-level-desc" id='trust-6'>
-                    <span class="trust-level">6</span>
-                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust</span>
-                </div>
-                <div class="trust-level-desc" id='trust-7'>
-                    <span class="trust-level">7</span>
-                    <span class="trust-desc">The Primary UID matching the domain may be signed by one of your keys that has only a Full or Marginal Trust that has expired</span>
-                </div>
-                <div class="trust-level-desc" id='trust-8'>
-                    <span class="trust-level">8</span>
-                    <span class="trust-desc">The Primary UID matching the domain may not be signed but otherwise meets the web of trust
-                        requirements (i.e.: signed by a key that you fully trust)</span>
-                </div>
-
             </div>
         </div>
-        </div>
-        <div style="clear:both">&nbsp;</div>
-
     </div>
     <div id="tabs-2">
         <div id="private_keylist">
@@ -713,9 +918,73 @@ span.trust .ui-button-text {
             <div class="ui-accordion-left"></div>
         </div>
     </div>
-<div id="delsig-confirm" title="Delete this Signature?">
-	<p><span class="ui-icon ui-icon-help" style="float:left; margin:0 7px 20px 0;"></span><span id='delsig-text'>Are you sure you wish to delete this signature?<span></p>
+    <br/>
+    <div id="window_functions" style="width:100%; text-align:right;"></div>
 </div>
-<br/>
-<div id="window_functions" style="width:100%; text-align:right;"></div>
+<div id="delsig-confirm" title="Delete this Signature?">
+    <p><span class="ui-icon ui-icon-help" style="float:left; margin:0 7px 20px 0;"></span><span id='delsig-text'>Are you sure you wish to delete this signature?</span></p>
+<div id="genkey-dialog" title="Key Details" style="font-size: 14px;">
+    <p>
+        <span id='genkey-text'>
+        </span>
+        <form id="genkey-form" style="width: 100%; height: 100px;">
+            <label for='uid_0_name' style='display:inline-block;width:128px;'>Your Name:</label>
+             <input type='text' id='uid_0_name' name='uid_0_name' onclick="$(this).removeClass('input-error');"/><span class='help-text'>i.e.: John Smith</span><br/>
+            <label for='uid_0_email' style='display:inline-block;width:128px;'>Your Email:</label>
+            <input type='text' id='uid_0_email' name='uid_0_email' onclick="$(this).removeClass('input-error');"/><span class='help-text'>i.e.: john.smith@example.com</span><br/>
+            <label for='passphrase' style='display:inline-block;width:132px;' >Passphrase:</label><input class="passphrase" type=password name="passphrase" id="passphrase" onclick="$(this).removeClass('input-error');"/><br/>
+            <label for='pass_repeat' style='display:inline-block;width:132px;'>Repeat Passphrase:</label><input class="pass_repeat" type=password name="pass_repeat" id="pass_repeat" onclick="$(this).removeClass('input-error');"/>
+            <ul class="expand">
+                <li class="trigger"><h4><strong>Advanced Options</strong></h4></li>
+                <li>
+                    <ul>
+                        <li class='option'>
+                            <label for='publicKey_algo'>Public Key Algorithm</label>
+                            <select id='publicKey_algo' class='key-algo'>
+                                <option value="DSA">DSA</option>
+                                <option value="RSA" selected>RSA</option>
+                            </select>
+                        </li>
+                        <li class='option'>
+                            <label for='publicKey_size'>Public Key Size</label>
+                            <select id='publicKey_size' class='key-size'>
+                                <option value="1024">1024</option>
+                                <option value="2048" selected>2048</option>
+                                <option value="4096">4096</option>  
+                            </select>
+                        </li>
+                        <hr>
+                        <li class='option'>
+                            <label for='subKey_algo'>Private Key Algorithm</label>
+                            <select id='subKey_algo' class='key-algo'>
+                                <option value="DSA">DSA</option>
+                                <option value="ELG-E">ElGamel</option>
+                                <option value="RSA" selected>RSA</option>
+                            </select>
+                        </li>
+                        <li class='option'>
+                            <label for='subKey_size'>Private Key Size</label>
+                            <select id='subKey_size' class='key-size'>
+                                <option value="1024">1024</option>
+                                <option value="2048" selected>2048</option>
+                                <option value="4096">4096</option>  
+                            </select>
+                        </li>
+                        <hr>
+                        <li class='option'>
+                            <label for='expire'>Expire in </label>
+                            <select id='key_expire' class='key-expire'>
+                                <option value="0">Never</option>
+                                <option value="30">30 Days</option>
+                                <option value="90" selected>90 days</option>
+                                <option value="365">1 year</option>
+                            </select>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </form>
+    </p>
+</div>
+</body>
 </html>

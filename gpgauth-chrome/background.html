@@ -83,12 +83,20 @@ var gpgauth_prefs = {
 /* end prefs setup */
 
 var gpgauthBackground = {
+    
     init: function() {
+        if (!localStorage.config_complete) {
+            // The configuration druid has not run, we need to start it.
+            //chrome.tabs.create({url: chrome.extension.getURL('druid.html')});
+        }
         //TODO: maybe a check of the version and update here ??
         plugin = document.createElement('embed');
         plugin.id = 'plugin';
         plugin.type = 'application/x-gpgauth';
         document.body.appendChild(plugin);
+        //plugin.addEventListener("load", gpgauthBackground.doit, false);
+        plugin.addEventListener("keygenprogress", gpgauthBackground.gpgGenKeyProgress, false);
+        plugin.addEventListener("keygencomplete", gpgauthBackground.gpgGenKeyComplete, false);
         var result = plugin.valid;
         console.log("my plugin returned: " + result);
         /* Check to make sure all of the enabled_keys are private keys 
@@ -184,6 +192,21 @@ var gpgauthBackground = {
                 'tab': request.tab,
             }
         }
+        if (request.msg == 'async-gpgGenKey') {
+            console.log("async-gpgGenKey requested");
+            var result = plugin.gpgGenKey(
+                    request.data['publicKey_algo'],
+                    request.data['publicKey_size'],
+                    request.data['subKey_algo'],
+                    request.data['subKey_size'],
+                    request.data['uid_0_name'],
+                    '',
+                    request.data['uid_0_email'],
+                    request.data['key_expire'],
+                    request.data['passphrase']
+                );
+            response = "queued";
+        }
         // Return the response and let the connection be cleaned up.
         sendResponse({'result': response});
     },
@@ -198,6 +221,8 @@ var gpgauthBackground = {
         var http = new XMLHttpRequest();
         var keyid = gpgauth_prefs.default_key.get();
         var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
+<!--        if (login_url && login_url[0] == "/")-->
+<!--                login_url = login_url.substr(1, login_url.length);-->
         var user_auth_url = 'http://' + domain + '/' + login_url;
         http.open("POST", user_auth_url, false);
         http.setRequestHeader('X-User-Agent', 'gpgauth v1.3/chrome');
@@ -320,6 +345,8 @@ var gpgauthBackground = {
             this.gpg_elements[domain]['server_validated'] = false;
         }
         if (!this.gpg_elements[domain]['server_validated'] == true) {
+<!--            if (server_verify_url && server_verify_url[0] == "/")-->
+<!--                server_verify_url = server_verify_url.substr(1, server_verify_url.length);-->
             this.gpg_elements[domain]['server_verify_url'] = 'http://' + domain + '/' + server_verify_url;
             key_results = gpgauthBackground.verifyDomainKey(domain, domain_keylist);
             //verify the result here, consult preferences for minimum trust level
@@ -354,6 +381,7 @@ var gpgauthBackground = {
         this.gpg_elements[domain]['server_validated'] = false;
         var http = new XMLHttpRequest();
         var params = "gpg_auth:server_verify_token=" + encodeURIComponent(encrypted_token);
+        console.log(this.gpg_elements[domain]['server_verify_url'], params)
         http.open("POST", this.gpg_elements[domain]['server_verify_url'], false);
         http.setRequestHeader('X-User-Agent', 'gpgauth v1.3/chrome');
         //Send the proper header information along with the request
@@ -375,6 +403,24 @@ var gpgauthBackground = {
             this.gpg_elements[domain]['server_validated'] = true;
         }
         return server_response;
+    },
+
+    gpgGenKeyProgress: function(data) {
+        var port = chrome.extension.connect({name: "gpgGenKeyProgress"});
+        port.postMessage({"type": "progress", "data": data});
+        port.disconnect()
+    },
+
+    gpgGenKeyComplete: function(data) {
+        var port = chrome.extension.connect({name: "gpgGenKeyProgress"});
+        port.postMessage({"type": "progress", "data": data});
+        port.disconnect();
+        var notification = webkitNotifications.createNotification(
+          'images/gpgauth-48.png',
+          'Key Generation Complete',
+          'The generation of your new Key is now complete.'
+        );
+        notification.show();
     },
 
     pulse: function(tab_id) {

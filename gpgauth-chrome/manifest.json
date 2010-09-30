@@ -10,7 +10,8 @@
       "48": "images/gpgauth-48.png"
    },
   "permissions": [
-       "tabs", "http://*/*"
+       "tabs", "http://*/*",
+       "notifications"
   ],
   "content_scripts": [
     {

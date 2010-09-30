@@ -4,7 +4,7 @@
 using namespace std;
 
 /* 
- * Define non-class related inlines
+ * Define non-member methods/inlines
  */
 
 /* An inline method to convert a null char */
@@ -749,27 +749,51 @@ string gpgAuth::getKeyList(string domain, int secret_only){
     return retVal;
 }
 
-string gpgAuth::gpgGenKey() {
+string gpgAuth::gpgGenKey(string key_type, string key_length, 
+        string subkey_type, string subkey_length, string name_real, 
+        string name_comment, string name_email, string expire_date, 
+        string passphrase, void* APIObj,
+        void(*cb_status)(
+            void *self,
+            const char *what,
+            int type,
+            int current,
+            int total
+        )
+    ) {
+
     gpgme_ctx_t ctx = init();
     gpgme_error_t err;
-    const char *parms = "<GnupgKeyParms format=\"internal\">\n"
-        "Key-Type: DSA\n"
-        "Key-Length: 1024\n"
-        "Subkey-Type: ELG-E\n"
-        "Subkey-Length: 1024\n"
-        "Name-Real: Joe Tester\n"
-        "Name-Comment: (pp=abc)\n"
-        "Name-Email: joe@foo.bar\n"
-        "Expire-Date: 0\n"
-        "Passphrase: abc\n"
-        "</GnupgKeyParms>\n";
-    gpgme_genkey_result_t result;
+    string params = "<GnupgKeyParms format=\"internal\">\n"
+        "Key-Type: " + key_type + "\n"
+        "Key-Length: " + key_length + "\n"
+        "Subkey-Type: " + subkey_type + "\n"
+        "Subkey-Length: " + subkey_length + "\n"
+        "Name-Real: " + name_real + "\n";
+    if (name_comment.length() > 0) {
+        params += "Name-Comment: " + name_comment + "\n";
+    }
+    if (name_email.length() > 0) {
+        params += "Name-Email: " + name_email + "\n";
+    }
+    if (expire_date.length() > 0) {
+        params += "Expire-Date: " + expire_date + "\n";
+    } else {
+        params += "Expire-Date: 0\n";
+    }
+    if (passphrase.length() > 0) {
+        params += "Passphrase: " + passphrase + "\n";
+    }
+    params += "</GnupgKeyParms>\n";
+    const char *parms = params.c_str();
 
-    gpgme_set_progress_cb (ctx, progress, NULL);
+    gpgme_genkey_result_t result;
+   
+    gpgme_set_progress_cb (ctx, cb_status, APIObj);
 
     err = gpgme_op_genkey (ctx, parms, NULL, NULL);
     if (err)
-        return "Error with genkey start";
+        return "Error with genkey start" + err;
     result = gpgme_op_genkey_result (ctx);
 
     if (!result)
@@ -785,6 +809,8 @@ string gpgAuth::gpgGenKey() {
         : (result->sub ? "sub" : "none"));
 
     gpgme_release (ctx);
+    const char* status = (char *) "complete";
+    cb_status(APIObj, status, 33, 33, 33);
     return "done.";
 }
 
@@ -806,9 +832,25 @@ string gpgAuth::gpgImportKey(string key) {
     return "0";
 }
 
-
 /* only compile main if -DDEBUG flag is set at compile time */
 #ifdef DEBUG
+
+void consoleProgress_cb(void *cbfunc, const char *what, int type, int current, int total) {
+    if (!strcmp (what, "primegen") && !current && !total
+        && (type == '.' || type == '+' || type == '!'
+        || type == '^' || type == '<' || type == '>'))
+    {
+      printf ("%c", type);
+      fflush (stdout);
+    } else if (!strcmp (what, "complete")) {
+        cout << "\nKey generation complete.\n";
+    } else {
+      fprintf (stderr, "unknown progress '%s' %d %d %d\n", what, type,
+        current, total);
+      exit (1);
+    }
+}
+
 
 /*
  * Define int main for testing from the command-line
@@ -832,7 +874,6 @@ int main(int argc, char **argv)
     char* key_to_verify = (char *) "";
     char* required_sig_keyid = (char *) "";
     int uid_idx = -1;
-    char* uid_any = (char *) "x";
     char* pattern = (char *) "";
     char* key = (char *) "";
     char* sig = (char *) "";
@@ -944,8 +985,20 @@ int main(int argc, char **argv)
         } else {
             retval += "key failed validty test with a trust level of " + i_to_str(key_valid);
         }
-    } else if (cmd == 4) {
-        retval = gpgauth.gpgGenKey();
+    } else if (cmd == 4) {      
+        retval = gpgauth.gpgGenKey(
+            (char*) "DSA", //key_type
+            (char*) "768",   // key_length
+            (char*) "ELG-E",  // subkey_type
+            (char*) "768",   // subkey_length
+            (char*) "Test Key CLI",   // name_real
+            (char*) "(no comment)",   // name_comment
+            (char*) "test_key@gpgauth.org",   // name_email
+            (char *) "1",     // expire date
+            (char *) "1234",   // passphrase
+            &gpgauth,
+            &consoleProgress_cb
+        );  
     } else if (cmd == 5) {
         /* remove a signature from a key */
         cout << key << " " << uid_idx << " " << sig;

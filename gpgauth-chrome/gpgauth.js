@@ -118,6 +118,7 @@ var gpgAuth = {
     },
 
     login: function(response) {
+        console.log("from gpgauth.js <121>:", response);
         if (response.result.valid == true || response.result.valid == 'override') {
             // send the token back..
             var http = new XMLHttpRequest();
@@ -142,7 +143,7 @@ var gpgAuth = {
     listenerUnload: function( event ) {
         gpgAuth.initialized = false;
         gpgAuth.status_window.update( "gpgAuth shutting down....", show=false );
-        window.removeEventListener( "gpg_auth:login", this.login, false, true );
+        window.removeEventListener( "gpg_auth:login");
     },
 
 };

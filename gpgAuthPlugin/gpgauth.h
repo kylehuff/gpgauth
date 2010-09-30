@@ -31,9 +31,7 @@ class gpgAuth {
             valid and is signed by the user */
         int verifyDomainKey(string domain, string domain_key_fpr, 
             int uid_idx, string required_sig_keyid);
-        // TODO: move to private after the removal of main()
         std::string getKeyList(string domain=NULL, int secret_only=0);
-        // TODO: move to private after the removal of main()
         std::string _gpgme_version;
         std::string gpgEncrypt(string data, string enc_to_keyid, 
             string enc_from_keyid=NULL, string sign=NULL);
@@ -41,7 +39,16 @@ class gpgAuth {
         std::string gpgSignUID(string keyid, int sign_uid, string with_keyid, 
             bool local_only=1, bool trust_sign=1, string trust_sign_level="M");
         std::string gpgDeleteUIDSign(string keyid, int uid, int signature);
-        std::string gpgGenKey();
+        std::string gpgGenKey(string key_type, string key_length, 
+            string subkey_type, string subkey_length, string name_real,
+            string name_comment, string name_email, string expire_date,
+            string passphrase, void* APIObj, void(*cb_status)(void *self,
+                                                const char *what,
+                                                int type,
+                                                int current,
+                                                int total
+                                            )
+        );
         std::string gpgImportKey(string key);
     private:
 };

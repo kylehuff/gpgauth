@@ -3,8 +3,24 @@
 #include "JSAPIAuto.h"
 #include "BrowserHostWrapper.h"
 #include "JSAPI.h"
+// Remove this after firebreath version 1.2.0
+#include "boost/thread/thread.hpp"
+#include "gpgauth.h"
+
 #ifndef H_gpgAuthPluginAPI
 #define H_gpgAuthPluginAPI
+
+struct genKeyParams {
+    std::string key_type;
+    std::string key_length;
+    std::string subkey_type;
+    std::string subkey_length;
+    std::string name_real;
+    std::string name_comment;
+    std::string name_email;
+    std::string expire_date;
+    std::string passphrase;
+};
 
 class gpgAuthPluginAPI : public FB::JSAPIAuto
 {
@@ -29,19 +45,36 @@ public:
         std::string trust_sign_level=NULL);
     std::string gpgDeleteUIDSign(std::string keyid, long sign_uid,
         long signature);
+    std::string gpgGenKey(std::string key_type, std::string key_length,
+            std::string subkey_type, std::string subkey_length,
+            std::string name_real, std::string name_comment,
+            std::string name_email, std::string expire_date,
+            std::string passphrase);
+    void threaded_gpgGenKey(genKeyParams params);
 
     // Read-only property ${PROPERTY.ident}
     std::string get_version();
 
     // Method echo
     FB::variant echo(const FB::variant& msg);
-    
-    // Method test-event
-    void testEvent(const FB::variant& s);
+
+    static void progress_cb(
+        void *self, const char *what,
+        int type, int current, int total
+    );
+
+    /*
+        static class method which accepts the calling object as a parameter
+            so it can thread a member function
+    */
+    static void threadCaller(gpgAuthPluginAPI* api,
+        genKeyParams params)
+    {
+        api->threaded_gpgGenKey(params);
+    };
 
 private:
     FB::AutoPtr<FB::BrowserHostWrapper> m_host;
-
     std::string m_testString;
 };
 
