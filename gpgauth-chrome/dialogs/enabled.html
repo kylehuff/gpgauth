@@ -70,7 +70,7 @@ body {
                 info_element = document.getElementById('info');
                 options_element = document.getElementById('description');
                 for (param in response.result.popup_data) {
-                    info_element.innerHTML += param + ": " + response.result.popup_data[param] + "<br/\>";                    
+                    info_element.innerHTML += param + ": " + response.result.popup_data[param] + "<br/\>";
                 }
                 if (response.result.validation['server_validated'] == true) {
                     container.style.backgroundColor = "#2C2";

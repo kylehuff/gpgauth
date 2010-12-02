@@ -2,9 +2,10 @@
 <head>
 <script>
 /* setup the preferences object
-    this is probably overkill for chrome, but added as generic object
+    this is probably overkill for chrome/chromeium, but added as generic object
         for use in extensions for other browsers.
 */
+
 var gpgauth_prefs = {
     gpgauth_enabled: {
         get: function() {
@@ -65,7 +66,6 @@ var gpgauth_prefs = {
             }
             window.localStorage.setItem('enabled_keys', keys_tmp);
         },
-            
     },
     default_key: {
         get: function() {
@@ -85,7 +85,7 @@ var gpgauth_prefs = {
 var gpgauthBackground = {
     
     init: function() {
-        if (!localStorage.config_complete) {
+        if (!localStorage.config_complete && localStorage.enabled) {
             // The configuration druid has not run, we need to start it.
             //chrome.tabs.create({url: chrome.extension.getURL('druid.html')});
         }
@@ -94,7 +94,6 @@ var gpgauthBackground = {
         plugin.id = 'plugin';
         plugin.type = 'application/x-gpgauth';
         document.body.appendChild(plugin);
-        //plugin.addEventListener("load", gpgauthBackground.doit, false);
         plugin.addEventListener("keygenprogress", gpgauthBackground.gpgGenKeyProgress, false);
         plugin.addEventListener("keygencomplete", gpgauthBackground.gpgGenKeyComplete, false);
         var result = plugin.valid;
@@ -125,7 +124,10 @@ var gpgauthBackground = {
                 gpgauthBackground.gpg_elements[request.params['domain']] = {};
             }
             domain_keylist = plugin.getDomainKey(request.params['domain']);
-            if (!domain_keylist) {
+            domain_key = null;
+            // Iterate through the returned domain_keylist to ensure it is not an empty object
+            for (key in JSON.parse(domain_keylist)) { domain_key = key; break; }
+            if (!domain_key) {
                 response = {'valid': false, 'errorno': 1, 'error': 'Server key not found' };
             } else if (!localStorage.enabled_keys) {
                 response = {'valid': false, 'errorno': 2, 'error': 'You have not enabled any personal keys for use with gpgAuth'};
@@ -134,7 +136,6 @@ var gpgauthBackground = {
             } else {
                 gpgauthBackground.gpg_elements[request.params['domain']]['headers'] = request.params['headers'];
                 response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
-                console.log(response);
                 chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/enabled.html"});
                 if (response['server_validated'] == true) {
                     chrome.pageAction.setIcon({
@@ -143,7 +144,7 @@ var gpgauthBackground = {
                     });
                     response = {'server_validated': true, 'cached': response['cached'], 'validation': response};
                 } else {
-                    console.log ("err was: ", response);
+                    //console.log ("err was: ", response);
                     response = {'server_validated': false, 'cached': response['cached'], 'validation': response};
                 }
             }
@@ -154,13 +155,23 @@ var gpgauthBackground = {
             }
         }
         if (request.msg == 'doUserLogin') {
-            token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url']);
-            if (token_from_server){
-                response = {'valid': true, 'decrypted_token': token_from_server[0], 'keyid': token_from_server[1] }
-                //this.gpg_elements[document.domain]['login_in_progress'] = new Date().getTime();
-            } else {
-                response = {'valid': false };
-            }
+		    token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url']);
+		    if (token_from_server['valid']){
+		        response = {'valid': true, 'decrypted_token': token_from_server['plaintext'], 'keyid': token_from_server['keyid'] }
+		    } else {
+		        gpgauthBackground.gpg_elements[request.params['domain']]['error'] = "Unable to decrypt token";
+		        gpgauthBackground.gpg_elements[request.params['domain']]['errorno'] = token_from_server['errorno'];
+		        gpgauthBackground.gpg_elements[request.params['domain']]['cipher'] = token_from_server['cipher'];
+		        chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup_error.html"});
+				gpgauthBackground.pulses[sender.tab.id] = {
+		            'timer': null,
+		            'icons': ['error.png', 'default.png'],
+		            'current_icon': 1,
+		            'counter': 10
+		        }
+		        gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+		        response = {'valid': false }
+		    }
         }
         if (request.msg == 'enabled') {
             response = {'enabled': gpgauth_prefs.gpgauth_enabled.get() };
@@ -214,46 +225,62 @@ var gpgauthBackground = {
     /*
     Function: getUserToken
     Make a request to the server to retrieve the token for the user via a
-     POST to the user_auth_url with the users username and/or keyid
+     POST to the user_auth_url with the users keyid (this is only called if
+     the server has been verified, or the verification has been overridden
+     by the user)
     */
     getUserToken: function(domain, login_url) {
-        var response_headers = null;
-        var http = new XMLHttpRequest();
-        var keyid = gpgauth_prefs.default_key.get();
-        var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
+		var response_headers = null;
+		var http = new XMLHttpRequest();
+		var keyid = gpgauth_prefs.default_key.get();
+		var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
 <!--        if (login_url && login_url[0] == "/")-->
 <!--                login_url = login_url.substr(1, login_url.length);-->
-        var user_auth_url = 'http://' + domain + '/' + login_url;
-        http.open("POST", user_auth_url, false);
-        http.setRequestHeader('X-User-Agent', 'gpgauth v1.3/chrome');
-        http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-        http.send(params);
-        console.log(params);
-        
-        if(http.readyState == 4 && http.status == 200) {
-            server_response = http.getResponseHeader('X-GPGAuth-User-Auth-Token')
-        } else {
-            server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
-        }
+		var user_auth_url = 'http://' + domain + '/' + login_url;
+		http.open("POST", user_auth_url, false);
+		http.setRequestHeader('X-User-Agent', 'gpgauth v1.3/chrome');
+		http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		http.send(params);
+		console.log(params);
 
-        if (this.debug){
-            console.log(http.responseText);
-            console.log(unescape(server_response));
-        }
-        
-        cipher = unescape(server_response).replace(/\\\+/g, ' ').replace(/\\./g, '.');
-        plaintext = plugin.gpgDecrypt(cipher);
+		if(http.readyState == 4 && http.status == 200) {
+		    server_response = http.getResponseHeader('X-GPGAuth-User-Auth-Token')
+		} else {
+		    server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
+		}
 
-        var random_re = new RegExp( "^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i" );
-        // if the response from the server matches both the format and content of the original token, server is validated
-        if (plaintext && random_re.test(plaintext)) {
-            console.log("token matches gpgAuth format, it is safe to return to the server decrypted");
-            return [plaintext, keyid];
-        } else {
-            console.log("the token does not match the gpgAuth format, or is null");
-            return false;
-        }
+		// Here we check to see if the server has reported any issues with key
+		if (server_response == "get_key failed") {
+			return response = {'valid': false, 'errorno': 4, 'error': 
+				'The server was unable to find your PublicKey (' + keyid + ').'
+			};
+		}
 
+		if (this.debug){
+		    console.log(http.responseText);
+		    console.log(unescape(server_response));
+		}
+
+		cipher = unescape(server_response).replace(/\\\+/g, ' ').replace(/\\./g, '.');
+		plaintext = plugin.gpgDecrypt(cipher);
+		console.log('plaintext: ', plaintext);
+
+		var random_re = new RegExp("^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i");
+		// if the response from the server matches both the format and content of the original token, server is validated
+		if (plaintext && random_re.test(plaintext)) {
+		    console.log("token matches gpgAuth format, it is safe to return to the server decrypted");
+		    return {'valid': true, 'plaintext': plaintext, 'keyid': keyid};
+		} else {
+			error_re = new RegExp("bad passphrase", "i");
+			if (error_re.test(plaintext)){
+				console.log("the passphrase was incorrect or cancelled");
+				errorno = 5;
+			} else {
+			    console.log("the token does not match the gpgAuth format, or is null");
+			    errorno = 6;
+			}
+		    return {'valid': false, 'errorno': errorno, 'cipher': cipher};
+		}
     },
 
     /*
@@ -264,75 +291,53 @@ var gpgauthBackground = {
     */
     verifyDomainKey: function(domain, domain_keylist){
         // first get a list of selected private keys for the user -
-        private_keylist = gpgauth_prefs.enabled_keys.get();
-        
+        var private_keylist = gpgauth_prefs.enabled_keys.get();
+        if(!private_keylist) {
+        	private_keylist = {};
+        }
+
+        var keylist = JSON.parse(plugin.getKeyList());
+        if (!keylist) {
+            keylist = {};
+        }
+
         /* for each domain_key returned by getDomainKey, and each user selected
             private key, validate via the NPAPI plugin and return the first
             acceptable match. A match being:
                 key.uid == document.domain && key.uid tsigned by private_keyid
                 NOTE: the key.uid must match sub.host.tld
         */
+        for (key in domain_keylist) { domain_key = key; break; }
         usable_domain_keyid = null;
         usable_private_keyid = null;
         usable_domain_key_trust = null;
         trust = -1;
-        for (domain_keyid in domain_keylist){
-            for (private_keyid in private_keylist){
-                /* plugin.verifyDomainKey returns a numeric trust value -
-                    -8: the domain UID and/or domain key was signed by an expired key
-                    -7: the domain UID and/or domain key was signed by a key that
-                        has been revoked
-                    -6: the domain uid was signed by a disabled key
-                    -5: the signature is expired
-                    -4: the domain uid signature has been revoked
-                    -3: the domain uid sinature is invalid
-                    -2: the domain uid has been revoked
-                    -1: the domain uid was not signed by any enabled
-                         private key and fails web-of-trust
-                    0: UID of domain_keyid was signed by an ultimately trusted
-                        private key
-                    1: UID of domain_keyid was signed by an expired private key
-                        that is ultimately trusted
-                    2: UID of domain_keyid was signed by a private key that is
-                        other than ultimately trusted
-                    3: UID of domain_keyid was signed by an expired private key
-                        that is other than ultimately trusted
-                    4: domain_keyid was signed (not the UID) by an ultimately
-                        trusted private key
-                    5: domain_key was signed (not the UID) by an expired
-                        ultimately trusted key
-                    6: domain_keyid was signed (not the UID) by an other than
-                        ultimately trusted private key
-                    7: domain_key was signed (not the UID) by an expired
-                        other than ultimately trusted key
-                    8: domain_keyid was not signed, but meets web of trust
-                        requirements (i.e.: signed by a key that the user
-                        trusts and has signed, as defined by the user
-                        preference of "advnaced.trust_model")
-                */
-                console.log("testing domain key: " + domain_keyid + 
-                    " from domain: " + domain + " against private_key: " + private_keyid);
-                trust = plugin.verifyDomainKey(
-                    domain,
-                    domain_keyid,
-                    -1,
-                    private_keyid
-                );
-                console.log("usable domain key: " + domain_keyid + " with a trust level of " + trust + " because signed with " + private_keyid);
-                usable_domain_keyid = domain_keyid;
-                usable_private_keyid = private_keyid;
-                usable_domain_key_trust = trust;
-                if (trust == 0)
+        for (uid in domain_keylist[domain_key].uids) {
+        	if (domain_keylist[key].uids[uid].uid == domain) {
+        		uid = uid;
+        		break;
+        	}
+        }
+        for (key in domain_keylist) { domain_key = key; break; }
+        for (privateKeyId in private_keylist) {
+            if (!private_keylist[privateKeyId].keystatus && 
+                privateKeyId in gpgauth_prefs.enabled_keys.get()){
+                pkey_status = 0;
+                pkey_status += parseInt(keylist[domain_key].expired)
+                pkey_status += parseInt(keylist[domain_key].disabled)
+                pkey_status += parseInt(keylist[domain_key].invalid)
+                pkey_status += parseInt(keylist[domain_key].revoked)
+                GAUTrust = (pkey_status || keylist[domain_key].uids[0].signatures.length < 1) ? '?' : plugin.verifyDomainKey(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId);
+                console.log(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId, GAUTrust);
+	            usable_domain_keyid = domain_key;
+	            usable_private_keyid = privateKeyId;
+	            usable_domain_key_trust = GAUTrust;
+                if (GAUTrust == '?' || GAUTrust == 0) {
                     break;
-            }
-            if (trust > -1){
-                break;
+                }
             }
         }
-/*        if (trust > -1){
-            usable_domain_keyid = domain_keyid;
-            usable_private_keyid = private_keylist[private_keyid];
-        }*/
+
         return {'domain_key': usable_domain_keyid, 'user_key': usable_private_keyid, 'domain_key_trust': usable_domain_key_trust};
     },
 
@@ -344,6 +349,7 @@ var gpgauthBackground = {
         if (this.gpg_elements[domain]['trust_level'] != parseInt(gpgauth_prefs.trust_level.get())) {
             this.gpg_elements[domain]['server_validated'] = false;
         }
+        this.gpg_elements[domain]['cached'] = false;
         if (!this.gpg_elements[domain]['server_validated'] == true) {
 <!--            if (server_verify_url && server_verify_url[0] == "/")-->
 <!--                server_verify_url = server_verify_url.substr(1, server_verify_url.length);-->
@@ -435,7 +441,7 @@ var gpgauthBackground = {
             clearInterval(this.pulses[tab_id]['timer']);
             chrome.pageAction.setIcon({
                 tabId: tab_id,
-                path: 'images/badges/' + this.pulses[tab_id]['icons'][0]
+                path: 'images/badges/' + this.pulses[tab_id]['icons'][1]
             });
         }
     },

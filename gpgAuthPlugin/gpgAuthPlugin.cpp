@@ -24,37 +24,19 @@ gpgAuthPlugin::~gpgAuthPlugin()
 {
 }
 
-FB::JSAPI* gpgAuthPlugin::createJSAPI()
+void gpgAuthPlugin::onPluginReady()
+{
+    // When this is called, the BrowserHost is attached, the JSAPI object is
+    // created, and we are ready to interact with the page and such.  The
+    // PluginWindow may or may not have already fire the AttachedEvent at
+    // this point.
+}
+
+FB::JSAPIPtr gpgAuthPlugin::createJSAPI()
 {
     // m_host is the BrowserHostWrapper
-    return new gpgAuthPluginAPI(m_host);
+    //return FB::JSAPIPtr(new gpgAuthPluginAPI(m_host));
+    return FB::JSAPIPtr(new gpgAuthPluginAPI(FB::ptr_cast<gpgAuthPlugin>(shared_ptr()), m_host));
 }
 
-bool gpgAuthPlugin::onMouseDown(FB::MouseDownEvent *evt, FB::PluginWindow *)
-{
-    //printf("Mouse down at: %d, %d\n", evt->m_x, evt->m_y);
-    return false;
-}
 
-bool gpgAuthPlugin::onMouseUp(FB::MouseUpEvent *evt, FB::PluginWindow *)
-{
-    //printf("Mouse up at: %d, %d\n", evt->m_x, evt->m_y);
-    return false;
-}
-
-bool gpgAuthPlugin::onMouseMove(FB::MouseMoveEvent *evt, FB::PluginWindow *)
-{
-    //printf("Mouse move at: %d, %d\n", evt->m_x, evt->m_y);
-    return false;
-}
-bool gpgAuthPlugin::onWindowAttached(FB::AttachedEvent *evt, FB::PluginWindow *)
-{
-    // The window is attached; act appropriately
-    return false;
-}
-
-bool gpgAuthPlugin::onWindowDetached(FB::DetachedEvent *evt, FB::PluginWindow *)
-{
-    // The window is about to be detached; act appropriately
-    return false;
-}

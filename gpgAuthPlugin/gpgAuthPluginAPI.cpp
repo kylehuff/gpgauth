@@ -1,9 +1,10 @@
-#include "BrowserObjectAPI.h"
+#include "JSObject.h"
 #include "variant_list.h"
-#include "DOM/JSAPI_DOMDocument.h"
+#include "DOM/Document.h"
+
 #include "gpgAuthPluginAPI.h"
 
-gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
+gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr host) : m_plugin(plugin), m_host(host)
 {
     registerMethod("getKeyList", make_method(this, &gpgAuthPluginAPI::getKeyList));
     registerMethod("getPrivateKeyList", make_method(this, &gpgAuthPluginAPI::getPrivateKeyList));
@@ -27,6 +28,16 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(FB::BrowserHostWrapper *host) : m_host(host)
 gpgAuthPluginAPI::~gpgAuthPluginAPI()
 {
 }
+
+gpgAuthPluginPtr gpgAuthPluginAPI::getPlugin()
+{
+    gpgAuthPluginPtr plugin(m_plugin.lock());
+    if (!plugin) {
+        throw FB::script_error("The plugin is invalid");
+    }
+    return plugin;
+}
+
 
 /*
     This method executes gpgauth.getKeyList with an empty string which

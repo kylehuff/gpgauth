@@ -8,6 +8,13 @@ set(PLUGIN_VERSION "1.0.0")
 set(PLUGIN_PREFIX "GAU")
 set(COMPANY_NAME "CURETHEITCH")
 
+# Set MAC drawing methods to 0 and disable the GUI
+set(FB_GUI_DISABLED 1)
+set(FBMAC_USE_CARBON 0)
+set(FBMAC_USE_COCOA 0)
+set(FBMAC_USE_QUICKDRAW 0)
+set(FBMAC_USE_COREGRAPHICS 0)
+set(FBMAC_USE_COREANIMATION 0)
 
 # ActiveX constants:
 set(FBTYPELIB_NAME gpgAuthPluginLib)

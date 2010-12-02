@@ -1,7 +1,6 @@
 <style>
 body {
-    min-width:357px;
-    overflow-x:hidden;
+    min-width:480px;
     position:relative;
     text-align: center;
     background-color: #000;
@@ -40,12 +39,24 @@ body {
     top: -15px;
 }
 
-a:link {
-    color: blue;
+.button {
+	font: bold 12px Arial;
+	text-decoration: none;
+	background-color: #DDD;
+	color: #000;
+	padding: 2px 6px 2px 6px;
+	border-top: 1px solid #CCC;
+	border-right: 1px solid #333;
+	border-bottom: 1px solid #333;
+	border-left: 1px solid #CCC;
+	float: right;
 }
-a:visited {
-    color: yellow;
+
+.button:hover {
+	color: #333;
+	border: 2px solid #666;
 }
+
 
 </style>
 <body>
@@ -57,25 +68,64 @@ a:visited {
     </div>
 </body>
 <script>
+    function callDoUserLogin(response) {
+        response.result['valid'] = 'override';
+        code = "response = {};" +
+            "response.result = {};" +
+            "response.result['valid'] = 'override';" +
+            "gpgAuth.serverResult(response);";
+    	//console.log(window.response);
+        chrome.tabs.executeScript(
+            window.response.result.validation.tab.id, 
+            {'code': code}
+        );
+    }
+    
+    function initiateImport(_tab){
+    	alert(window.location);
+    	chrome.tabs.getSelected(null, function(_tab) {
+            var re = /^.*?\/\/(.*?\.[^0-9]{3,4})\/.*?/gi
+            domain = re.exec(_tab.url)[1]
+	    	console.log(_tab.url, domain);
+	    	title = document.getElementById('title');
+            desc = document.getElementById('description');
+	    });
+    }
+
     chrome.tabs.getSelected(null, function(_tab) {
-        chrome.extension.sendRequest({msg: 'getPopupError', tab: _tab},
-            function(response) {
-                if (response.result.errorno) {
-                    title = document.getElementById('title');
-                    desc = document.getElementById('description');
-                    title.innerHTML = response.result.error;
-                    switch(response.result.errorno) {
-                        case 1:
-                            desc.innerHTML = "You do not have the public key for this domain.";
-                            break;
-                        case 2:
-                            desc.innerHTML = "In order for gpgAuth to determine the trust for this domain, you must enable at least 1 private key in the options window<br/\><br/\><a href='" + chrome.extension.getURL('options.html') + "?tab=1&helper=enable'>Click here to go to the options page</a>";
-                            break;
-                        case 3:
-                            desc.innerHTML = "In order to perform verification of a domain, gpgAuth must know your desired default key.<br/\><br/\><a href='" + chrome.extension.getURL('options.html') + "?tab=1&helper=default'>Click here to go to the options page</a>";
-                            break;
-                    }
-                }
-            })
+    	chrome.extension.sendRequest({msg: 'getPopupData', tab: _tab},
+    		function(data_response) {
+				chrome.extension.sendRequest({msg: 'getPopupError', tab: _tab},
+					function(error_response) {
+				        if (error_response.result.errorno) {
+				        	window.response = data_response;
+				            title = document.getElementById('title');
+				            desc = document.getElementById('description');
+				            title.innerHTML = error_response.result.error;
+				            switch(error_response.result.errorno) {
+				                case 1:
+				                    desc.innerHTML = "You do not have the public key for this domain.<br/\><br/\>Click on the \"import\" button below if you would like to attempt to import it.<br/\><br/\><div id='options'><input type='button' value='Import' onclick='initiateImport();'/\></div>";
+				                    break;
+				                case 2:
+				                    desc.innerHTML = "In order for gpgAuth to determine the trust for this domain, you must enable at least 1 private key in the options window<br/\><br/\><div id='options'><input type='button' onclick='window.location = \"" + chrome.extension.getURL('options.html') + "?tab=1&helper=enable\";' value=\"Click here to go to the options page\"/\></div>";
+				                    break;
+				                case 3:
+				                    desc.innerHTML = "In order to perform verification of a domain, gpgAuth must know your desired default key.<br/\><br/\><div id='options'><input type='button' onclick='window.location = \"" + chrome.extension.getURL('options.html') + "?tab=1&helper=default\"' value=\"Click here to go to the options page\"/\></div>";
+				                    break;
+				                case 4: // The server does not have the users reported public key
+				                	desc.innerHTML = "The server was unable to find or otherwise access your PublicKey";
+				                	break;
+				                case 5: // Unable to decrypt token (Bad or cancelled passphrase)
+				                	desc.innerHTML = "Unable to decrypt the token provided by the server;<br/\><br/\>The passphrase was incorrect or the passphrase dialog may have been cancelled.<br/\><br/\><div id='options'><input type='button' value='Retry Login' onclick='callDoUserLogin(window.response);window.close();'/\></div>";
+				                	break;
+				                case 6: // Token format does not match
+				                	desc.innerHTML = "The token provided by the server is either empty, or it does not match the required format.";
+				                	break;
+				            }
+				        }
+			    	}
+			    )
+			}
+		)
     });
 </script>

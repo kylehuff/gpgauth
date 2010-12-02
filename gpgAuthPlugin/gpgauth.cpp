@@ -1,5 +1,8 @@
 #include "gpgauth.h"
 #include "keyedit.h"
+#include  <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 using namespace std;
 
@@ -313,12 +316,17 @@ string gpgAuth::gpgDecrypt(string data){
     if (err != GPG_ERR_NO_ERROR) return "error: Problem creating gpgme input buffer";
 
     err = gpgme_data_new (&out);
-    if (err != GPG_ERR_NO_ERROR) return "error: unable to allocate result buffer";
+    if (err != GPG_ERR_NO_ERROR) return "error: Unable to allocate result buffer";
   
     err = gpgme_op_decrypt (ctx, in, out);
-    if (err != GPG_ERR_NO_ERROR) return "error: Decrypt failed.";
-    result = gpgme_op_decrypt_result (ctx);
+	string error = "error: Decrypt failed.";
+    if (gpg_err_code(err) == GPG_ERR_BAD_PASSPHRASE) error += " Bad passphrase; ";
+    if (gpg_err_code(err) == GPG_ERR_CANCELED) error += " Passphrase cancelled; ";
+    if (gpg_err_source(err) == GPG_ERR_SOURCE_PINENTRY) error += " Pinentry failed; ";
+    if (gpg_err_source(err) == GPG_ERR_SOURCE_GPGAGENT) error += " GPGAgent error; ";
 
+    if (err != GPG_ERR_NO_ERROR) return error;
+    result = gpgme_op_decrypt_result (ctx);
 
     size_t out_size = 0;
     string out_buf;
@@ -435,7 +443,7 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
         if (gpg_err_code (err) != GPG_ERR_EOF) exit(6);
         gpgme_get_key(ctx, (char *) domain_key_fpr.c_str(), &domain_key, 0);
         err = gpgme_op_keylist_end (ctx);
-        
+
         result = gpgme_op_keylist_result (ctx);
         // the UID failed the signature test, check to see if the primary UID was signed
         // by one permissible key, or a trusted key.
@@ -449,7 +457,7 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
                         if (nuids == uid_idx && domain_key_valid == -1){
                             err = gpgme_get_key(ctx, (char *) sig->keyid, &key, 0);
                             err = gpgme_get_key(ctx, (char *) sig->keyid, &secret_key, 1);
-                            
+
                             if (key->owner_trust == GPGME_VALIDITY_ULTIMATE) {
                                 if (!secret_key) {
                                     domain_key_valid = 8;
@@ -464,8 +472,12 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
                                     domain_key_valid = 6;
                                 }
                             }
-                            if (key->expired)
+                            if (key->expired && domain_key_valid < -1)
+                                domain_key_valid += -1;
+                            if (key->expired && domain_key_valid >= 0) {
                                 domain_key_valid++;
+                                cout << uid->name << " " << domain_key_valid << "POSIT\n";
+                            }
                             if (sig->expired)
                                 domain_key_valid = -6;
                             if (sig->invalid)
@@ -480,6 +492,7 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
                                 gpgme_key_unref (key);
                             if (secret_key)
                                 gpgme_key_unref (secret_key);
+                        	cout << uid->name << " " << domain_key_valid << "\n";
                         }
                         if (!strcmp(sig->keyid, (char *) required_sig_keyid.c_str())){
                             cout << sig->keyid << " ---- " << nuids << "\n";
@@ -722,7 +735,7 @@ string gpgAuth::getKeyList(string domain, int secret_only){
                   uid->validity == GPGME_VALIDITY_NEVER? "never":
                   uid->validity == GPGME_VALIDITY_MARGINAL? "marginal":
                   uid->validity == GPGME_VALIDITY_FULL? "full":
-                  uid->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";            
+                  uid->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
             retVal += "\" }";
             if (uid->next) {
                 retVal += ",\n\t\t";
@@ -877,9 +890,14 @@ int main(int argc, char **argv)
     char* pattern = (char *) "";
     char* key = (char *) "";
     char* sig = (char *) "";
-    while ((c = getopt (argc, argv, ":l:v:r:d:t:f:s:pg")) != -1)
+    while ((c = getopt (argc, argv, ":h:l:v:r:d:t:f:s:pg")) != -1)
          switch (c) {
             //Keylist (non-option arg)
+            case 'h':
+            	if (c == 'h') {
+            		cmd = 6;
+            	}
+            	break;
             case 'l':
                 if (c == 'l') {
                     cmd = 1;
@@ -998,11 +1016,26 @@ int main(int argc, char **argv)
             (char *) "1234",   // passphrase
             &gpgauth,
             &consoleProgress_cb
-        );  
+        );
     } else if (cmd == 5) {
         /* remove a signature from a key */
         cout << key << " " << uid_idx << " " << sig;
         retval += gpgauth.gpgDeleteUIDSign(key, uid_idx, atoi(sig));
+    } else if (cmd == 6) {
+    	/* make a head request to the specified url/host/port */
+		struct sockaddr_in addr;
+		struct hostent * hostent;
+		int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+		addr.sin_family = AF_INET;
+		addr.sin_port = htons(80);
+		hostent = gethostbyname("www.gpgauth.com");
+		addr.sin_addr.s_addr = *(u_int32_t*)hostent -> h_addr;
+		connect(socket_fd, (const struct sockaddr*)&addr, sizeof(struct sockaddr_in));
+		char buffer[4096];
+		char *request = "HEAD /tests/head_test.php HTTP/1.1\r\nHost: www.gpgauth.com\r\nContent-Length: 0\r\nUser-Agent: gpgauth-discovery-chrome/1.3\r\nAccept: */*\r\n\r\n";
+		write(socket_fd, request, strlen(request));
+		read(socket_fd, buffer, 4096);
+		printf("%s", buffer);
     }
     cout << retval << "\n";
     return 0;

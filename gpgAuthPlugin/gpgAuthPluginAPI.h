@@ -1,11 +1,10 @@
 #include <string>
 #include <sstream>
+#include <boost/weak_ptr.hpp>
 #include "JSAPIAuto.h"
-#include "BrowserHostWrapper.h"
-#include "JSAPI.h"
-// Remove this after firebreath version 1.2.0
-#include "boost/thread/thread.hpp"
+#include "BrowserHost.h"
 #include "gpgauth.h"
+#include "gpgAuthPlugin.h"
 
 #ifndef H_gpgAuthPluginAPI
 #define H_gpgAuthPluginAPI
@@ -25,8 +24,10 @@ struct genKeyParams {
 class gpgAuthPluginAPI : public FB::JSAPIAuto
 {
 public:
-    gpgAuthPluginAPI(FB::BrowserHostWrapper *host);
+	gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr host);
     virtual ~gpgAuthPluginAPI();
+    
+    gpgAuthPluginPtr getPlugin();
 
     // Read/Write property ${PROPERTY.ident}
     std::string get_testString();
@@ -74,7 +75,9 @@ public:
     };
 
 private:
-    FB::AutoPtr<FB::BrowserHostWrapper> m_host;
+    //FB::AutoPtr<FB::BrowserHostWrapper> m_host;
+    gpgAuthPluginWeakPtr m_plugin;
+    FB::BrowserHostPtr m_host;
     std::string m_testString;
 };
 
