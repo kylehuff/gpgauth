@@ -2,9 +2,10 @@ This is a firebreath NPAPI plugin project
 
 Install Dependencies
 ====================
-* Download and extract firebreath (http://firebreath.googlecode.com/files/firebreath-1.1.0.tar.bz2)
+* Download and extract firebreath
+   currently the only branch of firebreath that will function is taxilians branch which removes GUI requirements and negates the need for libgtk2.0-dev; the branch is here: https://github.com/taxilian/FireBreath.git
 * extract firebreath somewhere outside the gpgAuth src tree
-* Install cmake, libgtk2.0-dev, and libgpgme11-dev (Debian: apt-get install cmake libgtk2.0-dev libgpgme11-dev)
+* Install cmake, and libgpgme11-dev (Debian: apt-get install cmake libgpgme11-dev)
 
 
 Prep Build Environment
@@ -74,3 +75,4 @@ This compiles and installs the needed gpgme libraries into your MSYS installatio
 
 --- Compile gpgauth lib ---
 g++ -Wall -I c:\msys\1.0\usr\include -L c:\msys\1.0\local\lib -lgpg-error -lgpgme -o gpgauth.exe gpgauth.cpp
+
