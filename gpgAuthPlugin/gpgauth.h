@@ -49,6 +49,6 @@ class gpgAuth {
                                                 int total
                                             )
         );
-        std::string gpgImportKey(string key);
+        std::string gpgImportKey(string ascii_key);
     private:
 };

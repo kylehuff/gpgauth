@@ -15,6 +15,7 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr h
     registerMethod("gpgSignUID", make_method(this, &gpgAuthPluginAPI::gpgSignUID));
     registerMethod("gpgDeleteUIDSign", make_method(this, &gpgAuthPluginAPI::gpgDeleteUIDSign));
     registerMethod("gpgGenKey", make_method(this, &gpgAuthPluginAPI::gpgGenKey));
+    registerMethod("gpgImportKey", make_method(this, &gpgAuthPluginAPI::gpgImportKey));
 
     registerEvent("onkeygenprogress");
     registerEvent("onkeygencomplete");
@@ -171,6 +172,11 @@ std::string gpgAuthPluginAPI::gpgGenKey(std::string key_type,
     );
 
     return "queued";
+}
+
+std::string gpgAuthPluginAPI::gpgImportKey(std::string ascii_key) {
+	gpgAuth gpgauth;
+	return gpgauth.gpgImportKey(ascii_key);
 }
 
 // Read-only property version

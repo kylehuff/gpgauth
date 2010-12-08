@@ -52,6 +52,7 @@ public:
             std::string name_email, std::string expire_date,
             std::string passphrase);
     void threaded_gpgGenKey(genKeyParams params);
+    std::string gpgImportKey(std::string ascii_key);
 
     // Read-only property ${PROPERTY.ident}
     std::string get_version();

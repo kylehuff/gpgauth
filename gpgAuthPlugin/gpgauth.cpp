@@ -1,8 +1,9 @@
 #include "gpgauth.h"
 #include "keyedit.h"
-#include  <sys/socket.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <error.h>
 
 using namespace std;
 
@@ -827,22 +828,96 @@ string gpgAuth::gpgGenKey(string key_type, string key_length,
     return "done.";
 }
 
-string gpgAuth::gpgImportKey(string key) {
+string gpgAuth::gpgImportKey(string ascii_key) {
     gpgme_ctx_t ctx = init();
     gpgme_error_t err;
     gpgme_data_t key_buf;
     gpgme_import_result_t result;
 
-    err = gpgme_data_new_from_file (&key_buf, (char *) key.c_str(), 1);
-    cout << err << "\n";
+    err = gpgme_data_new_from_mem (&key_buf, ascii_key.c_str(), ascii_key.length(), 1);
+    cout << gpgme_strerror(err) << "\n";
 
     err = gpgme_op_import (ctx, key_buf);
-    cout << err << "\n";
+    cout << gpgme_strerror(err) << "\n";
+
     result = gpgme_op_import_result (ctx);
     gpgme_data_release (key_buf);
+	string status = "{ ";
+	status += "\"considered\" : ";
+	status += result->considered? "1":"0";
+	status += ",\n";
+	status += "\"no_user_id\" : ";
+	status += result->no_user_id? "1":"0";
+	status += ",\n";
+	status += "\"imported\" : ";
+	status += result->imported? "1":"0";
+	status += ",\n";
+	status += "\"imported_rsa\" : ";
+	status += result->imported_rsa? "1":"0";
+	status += ",\n";
+	status += "\"new_user_ids\" : ";
+	status += result->new_user_ids? "1":"0";
+	status += ",\n";
+	status += "\"new_sub_keys\" : ";
+	status += result->new_sub_keys? "1":"0";
+	status += ",\n";
+	status += "\"new_signatures\" : ";
+	status += result->new_signatures? "1":"0";
+	status += ",\n";
+	status += "\"new_revocations\" : ";
+	status += result->new_revocations? "1":"0";
+	status += ",\n";
+	status += "\"secret_read\" : ";
+	status += result->secret_read? "1":"0";
+	status += ",\n";
+	status += "\"secret_imported\" : ";
+	status += result->secret_imported? "1":"0";
+	status += ",\n";
+	status += "\"secret_unchanged\" : ";
+	status += result->secret_unchanged? "1":"0";
+	status += ",\n";
+	status += "\"not_imported\" : ";
+	status += result->not_imported? "1":"0";
+	status += ",\n";
+    status += "\"imports\" : {\n\t";
 
+    cout << "considered: " << result->considered << "\n";
+    cout << "no_user_id: " << result->no_user_id << "\n";
+    cout << "imported: " << result->imported << "\n";
+    cout << "imported_rsa: " << result->imported_rsa << "\n";
+    cout << "new_user_ids: " << result->new_user_ids << "\n";
+    cout << "new_sub_keys: " << result->new_sub_keys << "\n";
+    cout << "new_signatures: " << result->new_signatures << "\n";
+    cout << "new_revocations: " << result->new_revocations << "\n";
+    cout << "secret_read: " << result->secret_read << "\n";
+    cout << "secret_imported: " << result->secret_imported << "\n";
+    cout << "secret_unchanged: " << result->secret_unchanged << "\n";
+    cout << "not_imported: " << result->not_imported << "\n";
+
+    int nimports= 0;
+    gpgme_import_status_t import;
+    for (nimports=0, import=result->imports; import; import = import->next, nimports++) {
+		status += "\"";
+		status += i_to_str(nimports);
+		status += "\" : { ";
+		status += "\"fingerprint\" : \"";
+		status += import->fpr;
+		status += "\",\n\t\t";
+		status += "\"result\" : \"";
+		status += gpgme_strerror(import->result);
+		status += "\",\n\t\t";
+		status += "\"status\" : ";
+		status += import->status? "1":"0";
+		status += " },\n\t";
+	    cout << "fpr: " << import->fpr << "\n";
+	    cout << "result: " << gpgme_strerror(import->result) << "\n";
+	    cout << "status: " << import->status << "\n";
+	}
+    status = status.substr (0, status.length() - 3);
+	status += "\n\t}\n}";
     gpgme_release (ctx);
-    return "0";
+
+    return status;
 }
 
 /* only compile main if -DDEBUG flag is set at compile time */
@@ -890,9 +965,14 @@ int main(int argc, char **argv)
     char* pattern = (char *) "";
     char* key = (char *) "";
     char* sig = (char *) "";
-    while ((c = getopt (argc, argv, ":h:l:v:r:d:t:f:s:pg")) != -1)
+    while ((c = getopt (argc, argv, ":h:l:v:r:d:t:f:s:i:pg")) != -1)
          switch (c) {
             //Keylist (non-option arg)
+            case 'i':
+            	if (c == 'i') {
+            		cmd = 7;
+            	}
+            	break;
             case 'h':
             	if (c == 'h') {
             		cmd = 6;
@@ -1032,10 +1112,62 @@ int main(int argc, char **argv)
 		addr.sin_addr.s_addr = *(u_int32_t*)hostent -> h_addr;
 		connect(socket_fd, (const struct sockaddr*)&addr, sizeof(struct sockaddr_in));
 		char buffer[4096];
-		char *request = "HEAD /tests/head_test.php HTTP/1.1\r\nHost: www.gpgauth.com\r\nContent-Length: 0\r\nUser-Agent: gpgauth-discovery-chrome/1.3\r\nAccept: */*\r\n\r\n";
-		write(socket_fd, request, strlen(request));
+		string request = "HEAD /tests/head_test.php HTTP/1.1\r\nHost: www.gpgauth.com\r\nContent-Length: 0\r\nUser-Agent: gpgauth-discovery-chrome/1.3\r\nAccept: */*\r\n\r\n";
+		write(socket_fd, request.c_str(), request.length());
 		read(socket_fd, buffer, 4096);
 		printf("%s", buffer);
+    } else if (cmd == 7) {
+    	string text = "-----BEGIN PGP PUBLIC KEY BLOCK-----\r\n";
+			text += "Version: GnuPG v1.4.6 (GNU/Linux)\r\n";
+			text += "\r\n";
+			text += "mQGiBEZ4IL4RBACucv927JhaVQ6qrtKafcfsRMC6zxZCxnHRAGPY/z89gdxbfkF9\r\n";
+			text += "j3hycd24RqVilgWdRtj8cX+q+H+Zvir/kkdut9bOE5JCRAjLtDSyqtQuequNHM4r\r\n";
+			text += "/1jNYzvTJ/u8wFWduv7aM17LjnTO7rvg+IBGdokzcbAjKXUp+ONJoGZm1wCgpe16\r\n";
+			text += "O3kzUWPs6aAakSyrUf5rOK0D/idrgU8+Quv8v+va4mLC6d4pKucojbonERdiRCwj\r\n";
+			text += "1ae4zkpFYw4q3FV+79Kd+QDlX+tWGUgBFdLVOqJaiTUIcscH6x41LEhejJHq/3ln\r\n";
+			text += "wQv/pDiNHtB1R5Sexr5pPY8bcRrsXDCOnBQWM4n58dYvzjp0uwW87P+tDBwfI7Nf\r\n";
+			text += "STybA/oDX9NTh9gELu5S8dYuOsUV4LZidvN5xI95TM5ucedb3VmDmsBA3USCx8zo\r\n";
+			text += "1hJ25X+HD9QYM+zV+1IziP6al2qDiLFQM9IrIfewn1Jij8kvh+A39yLm8LmeeHKe\r\n";
+			text += "OnJ3jrxnllT6HXulcCR+U2BUCsb/kbl5oiAEV01sAxzf/KqJybQuY3RpLnNsYXZl\r\n";
+			text += "ZHVvIChVSUQgZm9yIGRldmVsb3BtZW50IG9uIHNsYXZlZHVvKYhmBBMRAgAmBQJL\r\n";
+			text += "BzLeAhsDBQkHfX0KBgsJCAcDAgQVAggDBBYCAwECHgECF4AACgkQk02hfDlEtCab\r\n";
+			text += "rACcDcw9bEYXaEa/hqVZm3qGvsDDqW4AoJ8yh3L9CPfNXklMqEJc/W5qhuNVtAtn\r\n";
+			text += "cGdhdXRoLm9yZ4hpBBMRAgApAhsDBQkHfX0KBgsJCAcDAgQVAggDBBYCAwECHgEC\r\n";
+			text += "F4AFAktfLvwCGQEACgkQk02hfDlEtCYI+wCfbzvpC69e69QFbf5V5+6DoEVHr+sA\r\n";
+			text += "oI8Ad7oQOug131OeCkbomRVU7se6tA93d3cuZ3BnYXV0aC5vcmeIZgQTEQIAJgUC\r\n";
+			text += "So2k6AIbAwUJB319CgYLCQgHAwIEFQIIAwQWAgMBAh4BAheAAAoJEJNNoXw5RLQm\r\n";
+			text += "mUQAoIl4NrR+e+oBDWnFTMnMfEI9JfP0AJ4vZ22a+yg81gpFuBrv8oDzNIVombQl\r\n";
+			text += "Z3BnYXV0aC5jb20gPGdwZ2F1dGhAY3VyZXRoZWl0Y2guY29tPohmBBMRAgAmAhsD\r\n";
+			text += "BgsJCAcDAgQVAggDBBYCAwECHgECF4AFAkozNsgFCQd9fQoACgkQk02hfDlEtCaJ\r\n";
+			text += "4QCfdp7NeFWzGxrSGknWFGLD+yPUNaIAoIyU8qSB3rJn+aeN9GBE4kwfKXputCl3\r\n";
+			text += "d3cuZ3BnYXV0aC5jb20gPGdwZ2F1dGhAY3VyZXRoZWl0Y2guY29tPohmBBMRAgAm\r\n";
+			text += "AhsDBgsJCAcDAgQVAggDBBYCAwECHgECF4AFAkozNsgFCQd9fQoACgkQk02hfDlE\r\n";
+			text += "tCbpXgCfZySGlwN6xRGo+IXsFbJSNQmdoUIAoJ5YGn2NjyXt3ljXgv9NyeoQZXvt\r\n";
+			text += "tBVsb2dpbi5jdXJldGhlaXRjaC5jb22IZgQTEQIAJgIbAwYLCQgHAwIEFQIIAwQW\r\n";
+			text += "AgMBAh4BAheABQJKMzbIBQkHfX0KAAoJEJNNoXw5RLQmO14AoIwheA5zE9Ow6ZpB\r\n";
+			text += "zKHfZcGfN3xCAJ4+3PfoM3tdfoLTFuLFRNuf+dL+fLQPY3VyZXRoZWl0Y2guY29t\r\n";
+			text += "iGYEExECACYCGwMGCwkIBwMCBBUCCAMEFgIDAQIeAQIXgAUCSjM2yAUJB319CgAK\r\n";
+			text += "CRCTTaF8OUS0Jp3SAKCJKNmu81wF4rds8ghEICgXSvG7SQCgk6d+6W1ApfJ0nDRB\r\n";
+			text += "4HiAGwByOkW0JWN0aS5sb2NhbGhvc3QgKExvY2FsIGRldmVsb3BtZW50IFVJRCmI\r\n";
+			text += "ZgQTEQIAJgUCSwcypwIbAwUJB319CgYLCQgHAwIEFQIIAwQWAgMBAh4BAheAAAoJ\r\n";
+			text += "EJNNoXw5RLQmyCQAmwXsj4BOZTsjTMj1gFp8KKwWiIgPAJ9fO1Ilmc9I8DZRThPR\r\n";
+			text += "DEKk8Jt4XbkCDQRGeCDREAgA6o55VsgylVSW0K3ssWFOfKGX0RdQOZie5DokOcVo\r\n";
+			text += "PNGUFq98ln8njm4kwawI6yhlzhtRLKrQeTlMv9kHjkYMRE36TUcXZ+l2drdKhdLR\r\n";
+			text += "N839A7siRKScfCBUpDo2qDfyiTFiUnH7t09+CV2b+FKvWjJfDKHY5cRxpmo7ng3X\r\n";
+			text += "cuD8egd3IdPYFzTfRUG2D4Zu3z2pmb1gWI3tEWoLGenlSPyLkH7R8tjI3Q927frF\r\n";
+			text += "XD931UTgWlQcorPe4r4EkfOZO0T6nIdaK7hKm/oA6yboTfVqTB6OHPEV8FY9onVq\r\n";
+			text += "Oo01KQ5QgYsHjEVlb730XhT4+ZUZh3HQ5VJlR1qT4Lm8YwADBgf9ECl/f8XpgH5F\r\n";
+			text += "D24r4lkSK6f8Vr1J052OsUpei4DkCQlSa/StPTPGnBczkGQKi2zE8ygxDQDlAQBQ\r\n";
+			text += "IsBA30YLWyafgvpqicUgxSYjeLfUZAPfNkcv/Uoa2oaV3/TZA8j7hgNAnq+t4oZD\r\n";
+			text += "InAtF4jFegkNsWuk2PbHTgQ6oACAEYzJ3izZZmunmg8zVAm+hT573ETVfwJurp4W\r\n";
+			text += "MhSigrGOiuQe2BScQRyZdkSGbG8CM39JpefTD5LPHYvMgl4AaAAULyenfvek0LDg\r\n";
+			text += "HbeJQXxROQzXodnuQZxSAvpCr017EU0eLEq2Ym6Yhw7GFfdovL0DhXMyFIW8K+wW\r\n";
+			text += "1c7CVB8aa4hPBBgRAgAPAhsMBQJLXy8cBQkGyEHLAAoJEJNNoXw5RLQm7ooAnRXb\r\n";
+			text += "rHP/sueXZNC9tRs8z2W74fppAJ0QiP+CxcIQUhYNPEX2FYV2Q2az3Q==\r\n";
+			text += "=G4II\r\n";
+			text += "-----END PGP PUBLIC KEY BLOCK-----";
+    	string x = gpgauth.gpgImportKey(text);
+    	cout << x;
     }
     cout << retval << "\n";
     return 0;

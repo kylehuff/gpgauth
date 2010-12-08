@@ -55,7 +55,7 @@ body{
     font-size: 14px;
 }
 
-#trust-level-sel {
+.trust-level-sel {
     text-align: center;
     margin-left: auto; margin-right: auto;
     font-family:sans-serif;
@@ -136,6 +136,25 @@ body{
     float:left;
 }
 
+.system-check {
+    float:left;
+	height: 32px;
+	width: 32px;
+	position:relative;
+	background: #aaa  url('images/menumask.png') repeat-x;
+	border: 2px solid #333;
+    -moz-border-radius: 8px;
+    -webkit-border-radius: 8px;
+    top: 0px;
+}
+
+.system-check img {
+	height: 28px;
+	width: 28px;
+	padding-left: 2px;
+	padding-top: 2px;
+}
+
 .trust-desc {
     clear:right;
 }
@@ -145,18 +164,41 @@ body{
 
 <div id="tabs">
     <ul>
-        <li><a href="#tabs-1">Step 1: Trust</a></li>
-        <li><a href="#tabs-2">Step 2: Your Keys</a></li>
-        <li><a href="#tabs-3">Step 3: Provider Keys</a></li>
+    	<li><a href="#tabs-1">Step 1: System Check</a></li>
+        <li><a href="#tabs-2">Step 2: Trust</a></li>
+        <li><a href="#tabs-3">Step 3: Your Keys</a></li>
+        <li><a href="#tabs-4">Step 4: Provider Keys</a></li>
     </ul>
     <div id="tabs-1">
-        <div id="step-1" style="text-align: center;">
+    	<div id="step-1" style="text-align: center;">
+    		<div class="bound-box">
+                <p>Please review the list of requirements below and ensure your system is setup/configured to use gpgAuth authentication.</p>
+				<div style="width:100%; float:left;text-align: center;">
+		            <div class="trust-level-sel" style="min-width: 600px; text-align:left;">
+		                <div class="trust-level-desc" id='system-0'>
+		                    <span class="system-check" style="margin-right:8px;"><img src='images/check.png'></span>
+		                    <span class="trust-desc" style="font-size:16px;">Your system appears to be configured correctly, you should be able to use the gpgAuth authentication mechanism</span>
+		                </div>
+		                <div class="trust-level-desc" id='system-1' style="display:none;">
+		                    <span class="system-check" style="margin-right:8px;"><img src='images/cancel.png'></span>
+		                    <span class="trust-desc">Something other installed: </span>
+		                </div>
+		            </div>
+		        </div>
+		    </div>
+    	</div>
+        <div class="controls" style="width: 100%; text-align: right; padding-top: 15px;">
+            <input type="button" class="next-button" value="Next: Trust"/>
+        </div>
+    </div>
+    <div id="tabs-2">
+        <div id="step-2" style="text-align: center;">
             <div class="ui-accordion-left"></div>
             <div class="bound-box">
                 <p>Welcome to the gpgAuth configuration helper - this will walk you through the items that need configuration before you can begin using gpgAuth.</p>
                 <p>Select a trust level:</p>
                 <div style="width:100%; float:left;text-align: center;">
-                <div id="trust-level-sel" style="min-width: 600px;">
+                <div class="trust-level-sel" id="trust-level-sel" style="min-width: 600px;">
                     <span id="trust-header">
                         gpgAuth Minimum Trust Level
                     </span><br/><br/>
@@ -209,8 +251,8 @@ body{
             <input type="button" class="next-button" value="Next: Your Keys"/>
         </div>
     </div>
-    <div id="tabs-2">
-        <div id="step-2" style="text-align: center;">
+    <div id="tabs-3">
+        <div id="step-3" style="text-align: center;">
             <div class="ui-accordion-left"></div>
             <div class="bound-box">
                 <p id="personal-key-desc">In order to use gpgAuth you must have a set of Personal Keys</p>
@@ -239,7 +281,7 @@ body{
             <input type="button" class="next-button" value="Next: Provider Keys"/>
         </div>
     </div>
-    <div id="tabs-3">
+    <div id="tabs-4">
         <div class="controls" style="width: 100%; text-align: right; padding-top: 15px;">
             <input type="button" class="next-button" value="Done"/>
         </div>

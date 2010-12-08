@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>gpgAuthPlugin</string>
+	<key>CFBundleGetInfoString</key>
+	<string>gpgAuthPlugin v1.0.3b, Copyright 2010 CURE|THE|ITCH</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.CURETHEITCH.gpgAuthPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>BRPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>gpgAuthPlugin v1.0.3b</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.3b</string>
+	<key>CFPlugInDynamicRegisterFunction</key>
+	<string></string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>00000000-0000-0000-0000-000000000000</key>
+		<string>MyFactoryFunction</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>00000000-0000-0000-0000-000000000000</key>
+		<array>
+			<string>00000000-0000-0000-0000-000000000000</string>
+		</array>
+	</dict>
+	<key>CFPlugInUnloadFunction</key>
+	<string></string>
+	<key>WebPluginDescription</key>
+	<string>gpgAuth web authentication plugin version 1.0.3b for authentication using GnuPG/PGP</string>
+	<key>WebPluginMIMETypes</key>
+	<dict>
+		<key>application/x-gpgauth</key>
+		<dict>
+			<key>WebPluginTypeDescription</key>
+			<string>gpgAuth web authentication plugin version 1.0.3b for authentication using GnuPG/PGP</string>
+		</dict>
+	</dict>
+	<key>WebPluginName</key>
+	<string>gpgAuth</string>
+</dict>
+</plist>
