@@ -46,6 +46,8 @@ public:
         std::string trust_sign_level=NULL);
     std::string gpgDeleteUIDSign(std::string keyid, long sign_uid,
         long signature);
+    std::string gpgEnableKey(std::string keyid);
+    std::string gpgDisableKey(std::string keyid);
     std::string gpgGenKey(std::string key_type, std::string key_length,
             std::string subkey_type, std::string subkey_length,
             std::string name_real, std::string name_comment,

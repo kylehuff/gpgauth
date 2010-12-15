@@ -1,9 +1,13 @@
 #include "gpgauth.h"
 #include "keyedit.h"
+#ifdef DEBUG
+#ifndef HAVE_W32_SYSTEM
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <error.h>
+#endif
+#endif
 
 using namespace std;
 
@@ -67,6 +71,8 @@ gpgme_ctx_t gpgAuth::init(){
         gpgme_set_locale (NULL, LC_MESSAGES, setlocale (LC_MESSAGES, NULL));
     #endif
     err = gpgme_engine_check_version (GPGME_PROTOCOL_OpenPGP);
+    if (err)
+    	cout << "err: " << err;
 
     err = gpgme_new (&ctx);
     gpgme_set_textmode (ctx, 1);
@@ -77,23 +83,72 @@ gpgme_ctx_t gpgAuth::init(){
     return ctx;
 };
 
-string gpgAuth::set_preference(string preference, string pref_value) {
+string gpgAuth::get_preference(string preference) {
     gpgme_ctx_t ctx = init();
     gpgme_error_t err;
     gpgme_conf_comp_t conf, comp;
-    string return_code;
+    gpgme_conf_opt_t opt;
+    string return_value;
+    string error = "error: ";
 
     err = gpgme_op_conf_load (ctx, &conf);
     if (err)
-        return "error";
+        return error.append(gpgme_strerror (err));
+
+    comp = conf;
+    while (comp && strcmp (comp->name, "gpg"))
+        comp = comp->next;
+
+    if (comp) {
+        opt = comp->options;
+        while (opt && strcmp (opt->name, (char *) preference.c_str())){
+#ifdef DEBUG
+            printf( "opt: %s\n", opt->name);
+#endif
+            if (opt->next)
+	            opt = opt->next;
+	        else
+		        opt->name = (char *) preference.c_str();
+        }
+
+        if (opt->value) {
+	        //printf("from value: '%s' ", opt->value);
+			//return_value = (char *) opt->value;
+			return_value = "";
+		} else {
+			return_value = "";
+		}
+	}
+
+    gpgme_conf_release (conf);
+
+    return return_value;
+
+}
+
+string gpgAuth::set_preference(string preference, string pref_value) {
+	gpgme_error_t err;
+	string error = "error: ";
+	gpgme_protocol_t proto = GPGME_PROTOCOL_OpenPGP;
+    err = gpgme_engine_check_version (proto);
+    if (err != GPG_ERR_NO_ERROR)
+        return error.append(gpgme_strerror (err));
+    
+    gpgme_ctx_t ctx = init();
+    gpgme_conf_comp_t conf, comp;
+    string return_code;
+    
+    err = gpgme_op_conf_load (ctx, &conf);
+    if (err != GPG_ERR_NO_ERROR)
+        return error.append(gpgme_strerror (err));
 
     gpgme_conf_arg_t original_arg, arg;
     gpgme_conf_opt_t opt;
     
     err = gpgme_conf_arg_new (&arg, GPGME_CONF_STRING, (char *) pref_value.c_str());
     
-    if (err)
-        return "error";
+    if (err != GPG_ERR_NO_ERROR)
+        return error.append(gpgme_strerror (err));
 
     comp = conf;
     while (comp && strcmp (comp->name, "gpg"))
@@ -117,6 +172,7 @@ string gpgAuth::set_preference(string preference, string pref_value) {
         if (original_arg && !strcmp (original_arg->value.string, arg->value.string))
             return "0";
 
+#ifdef DEBUG
         printf("setting option: %s ", opt->name);
         
         if (!strcmp(return_code.c_str(), "blank")) {
@@ -126,16 +182,16 @@ string gpgAuth::set_preference(string preference, string pref_value) {
             printf("from value: '%s' ", original_arg->value.string);
             printf("to value: '%s'\n", arg->value.string);
         }   
-        
+#endif
         if (opt) {
             if (!strcmp(pref_value.c_str(), "blank"))
                 err = gpgme_conf_opt_change (opt, 0, NULL);
             else
                 err = gpgme_conf_opt_change (opt, 0, arg);
-            if (err) return_code = "error";
+            if (err != GPG_ERR_NO_ERROR) return_code = error.append(gpgme_strerror (err));
             
             err = gpgme_op_conf_save (ctx, comp);
-            if (err) return_code = "error";
+            if (err != GPG_ERR_NO_ERROR) return_code = error.append(gpgme_strerror (err));
         }
     }
     
@@ -190,8 +246,10 @@ string gpgAuth::gpgEncrypt(string data, string enc_to_keyid, \
     result = gpgme_op_encrypt_result (ctx);
     if (result->invalid_recipients)
     {
+#ifdef DEBUG
       fprintf (stderr, "Invalid recipient encountered: %s\n",
            result->invalid_recipients->fpr);
+#endif
       if(err != GPG_ERR_NO_ERROR) return "error: Invalid recipient(s)";
     }
 
@@ -239,10 +297,10 @@ string gpgAuth::gpgSignUID(string keyid, int sign_uid, string with_keyid,
 
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        errr = string("error with keylist start").append(gpgme_strerror (err));;
+        errr = string("error with keylist start; ").append(gpgme_strerror (err));
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        errr = string("error with keylist next").append(gpgme_strerror (err));
+        errr = string("error with keylist next; ").append(gpgme_strerror (err));
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
         errr = string("error with keylist end; ").append(gpgme_strerror (err));
@@ -297,6 +355,68 @@ string gpgAuth::gpgDeleteUIDSign(string keyid, int uid, int signature){
 
     current_uid = "0";
     current_sig = "0";
+
+    gpgme_data_release (out);
+    gpgme_key_unref (key);
+    gpgme_release (ctx);
+    return result;
+}
+
+string gpgAuth::gpgEnableKey(string keyid) {
+    gpgme_ctx_t ctx = init();
+    gpgme_error_t err;
+    gpgme_data_t out = NULL;
+    gpgme_key_t key = NULL;
+    string result = "key '" + keyid + "' enabled";
+
+    err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist start").append(gpgme_strerror (err));;
+    err = gpgme_op_keylist_next (ctx, &key);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist next").append(gpgme_strerror (err));
+    err = gpgme_op_keylist_end (ctx);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist end; ").append(gpgme_strerror (err));
+
+    err = gpgme_data_new (&out);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
+    
+    err = gpgme_op_edit (ctx, key, edit_fnc_enable, out, out);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
+
+    gpgme_data_release (out);
+    gpgme_key_unref (key);
+    gpgme_release (ctx);
+    return result;
+}
+
+string gpgAuth::gpgDisableKey(string keyid) {
+    gpgme_ctx_t ctx = init();
+    gpgme_error_t err;
+    gpgme_data_t out = NULL;
+    gpgme_key_t key = NULL;
+    string result = "key '" + keyid + "' disabled";
+
+    err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist start").append(gpgme_strerror (err));;
+    err = gpgme_op_keylist_next (ctx, &key);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist next").append(gpgme_strerror (err));
+    err = gpgme_op_keylist_end (ctx);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with keylist end; ").append(gpgme_strerror (err));
+
+    err = gpgme_data_new (&out);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
+    
+    err = gpgme_op_edit (ctx, key, edit_fnc_disable, out, out);
+    if (err != GPG_ERR_NO_ERROR)
+        result = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
 
     gpgme_data_release (out);
     gpgme_key_unref (key);
@@ -535,7 +655,7 @@ int gpgAuth::verifyDomainKey(string domain, string domain_key_fpr, int uid_idx, 
     return domain_key_valid;
 }
 
-/* This method is public, it returns the users keylist in a
+/* This method returns the users keylist in a
     JSON-ish format for returning to the extension. */
 string gpgAuth::getKeyList(string domain, int secret_only){
     /* declare variables */
@@ -812,20 +932,23 @@ string gpgAuth::gpgGenKey(string key_type, string key_length,
 
     if (!result)
     {
+#ifdef DEBUG
         fprintf (stderr, "%s:%d: gpgme_op_genkey_result returns NULL\n",
            __FILE__, __LINE__);
+#endif
         return "error with result";
     }
         
-
+#ifdef DEBUG
     printf ("Generated key: %s (%s)\n", result->fpr ? result->fpr : "none",
         result->primary ? (result->sub ? "primary, sub" : "primary")
         : (result->sub ? "sub" : "none"));
+#endif
 
     gpgme_release (ctx);
     const char* status = (char *) "complete";
     cb_status(APIObj, status, 33, 33, 33);
-    return "done.";
+    return "done";
 }
 
 string gpgAuth::gpgImportKey(string ascii_key) {
@@ -965,12 +1088,20 @@ int main(int argc, char **argv)
     char* pattern = (char *) "";
     char* key = (char *) "";
     char* sig = (char *) "";
-    while ((c = getopt (argc, argv, ":h:l:v:r:d:t:f:s:i:pg")) != -1)
+    while ((c = getopt (argc, argv, ":ihl:v:r:x:d:t:f:s::pg")) != -1)
          switch (c) {
-            //Keylist (non-option arg)
+            // Keylist (non-option arg)
+            case 'x':
+            	if (c == 'x') {
+            		cmd = 7;
+                    if (optarg) {
+                        key = argv[2];
+                    }
+            	}
+            	break;
             case 'i':
             	if (c == 'i') {
-            		cmd = 7;
+            		cmd = 8;
             	}
             	break;
             case 'h':
@@ -989,7 +1120,7 @@ int main(int argc, char **argv)
                     }
                 }
                 break;
-            //Data to encrypt -d <DATA>
+            // Data to encrypt -d <DATA>
             case 'd':
                 if (c == 'd') {
                     cmd = 2;
@@ -998,11 +1129,11 @@ int main(int argc, char **argv)
                     cout << "\noptarg: " << optarg << "\n";
                 data_to_enc = optarg;
                 break;
-            //Encrypt from key -f <KEY UID or ID>
+            // Encrypt from key -f <KEY UID or ID>
             case 'f':
                 enc_from_key = optarg;
                 break;
-            //Encrypt to key -f <KEY UID or ID>
+            // Encrypt to key -f <KEY UID or ID>
             case 't':
                 enc_to_key = optarg;
                 break;
@@ -1010,7 +1141,7 @@ int main(int argc, char **argv)
             case 's':
                 sign_with_key = optarg;
                 break;
-            //Verifify -v <KEY UID or ID>
+            // Verifify -v <KEY UID or ID>
             case 'v':
                 if (c == 'v') {
                     cmd = 3;
@@ -1026,7 +1157,7 @@ int main(int argc, char **argv)
                     required_sig_keyid = argv[5];
                 }
                 break;
-            //List private keys
+            // List private keys
             case 'p':
                 if (c == 'p') {
                     cmd = 1;
@@ -1041,6 +1172,7 @@ int main(int argc, char **argv)
                     }
                 }
                 break;
+            // Generate private key (default values)
             case 'g':
                 if (c == 'g') {
                     cmd = 4;
@@ -1102,6 +1234,7 @@ int main(int argc, char **argv)
         cout << key << " " << uid_idx << " " << sig;
         retval += gpgauth.gpgDeleteUIDSign(key, uid_idx, atoi(sig));
     } else if (cmd == 6) {
+#ifndef HAVE_W32_SYSTEM
     	/* make a head request to the specified url/host/port */
 		struct sockaddr_in addr;
 		struct hostent * hostent;
@@ -1116,7 +1249,17 @@ int main(int argc, char **argv)
 		write(socket_fd, request.c_str(), request.length());
 		read(socket_fd, buffer, 4096);
 		printf("%s", buffer);
-    } else if (cmd == 7) {
+#else
+		prinf("not implemented for this platform\n");
+#endif
+	} else if (cmd == 7) {
+        cout << "going to disable key: " << key << "\n";
+        retval += gpgauth.gpgDisableKey(key);
+        cout << retval << "\n";
+        retval = gpgauth.gpgEnableKey(key);
+        cout << retval << "\n";
+        retval = gpgauth.gpgDisableKey(key);
+    } else if (cmd == 8) {
     	string text = "-----BEGIN PGP PUBLIC KEY BLOCK-----\r\n";
 			text += "Version: GnuPG v1.4.6 (GNU/Linux)\r\n";
 			text += "\r\n";
@@ -1167,7 +1310,15 @@ int main(int argc, char **argv)
 			text += "=G4II\r\n";
 			text += "-----END PGP PUBLIC KEY BLOCK-----";
     	string x = gpgauth.gpgImportKey(text);
-    	cout << x;
+    	cout << x << "\n";
+    	string y = gpgauth.get_preference("use-agent");
+//    	string with_keyid = "E74EB6F3";
+//    	string original_value = gpgauth.set_preference("default-key", (char *) with_keyid.c_str());
+//	    if (strcmp ((char *) original_value.c_str(), "0")) {
+//     	   //cout << "from way down here: " << original_value << "\n";
+//     	   gpgauth.set_preference("default-key", original_value);
+//	    }
+    	//cout << "value for option: " << original_value << "\n";
     }
     cout << retval << "\n";
     return 0;

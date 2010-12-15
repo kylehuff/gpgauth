@@ -13,6 +13,8 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr h
     registerMethod("gpgEncrypt", make_method(this, &gpgAuthPluginAPI::gpgEncrypt));
     registerMethod("gpgDecrypt", make_method(this, &gpgAuthPluginAPI::gpgDecrypt));
     registerMethod("gpgSignUID", make_method(this, &gpgAuthPluginAPI::gpgSignUID));
+    registerMethod("gpgEnableKey", make_method(this, &gpgAuthPluginAPI::gpgEnableKey));
+    registerMethod("gpgDisableKey", make_method(this, &gpgAuthPluginAPI::gpgDisableKey));
     registerMethod("gpgDeleteUIDSign", make_method(this, &gpgAuthPluginAPI::gpgDeleteUIDSign));
     registerMethod("gpgGenKey", make_method(this, &gpgAuthPluginAPI::gpgGenKey));
     registerMethod("gpgImportKey", make_method(this, &gpgAuthPluginAPI::gpgImportKey));
@@ -113,6 +115,19 @@ std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
         trust_sign, trust_sign_level);
 }
 
+std::string gpgAuthPluginAPI::gpgEnableKey(std::string keyid)
+{
+    gpgAuth gpgauth;
+    return gpgauth.gpgEnableKey(keyid);
+}
+
+std::string gpgAuthPluginAPI::gpgDisableKey(std::string keyid)
+{
+    gpgAuth gpgauth;
+    return gpgauth.gpgDisableKey(keyid);
+}
+
+
 std::string gpgAuthPluginAPI::gpgDeleteUIDSign(std::string keyid,
     long sign_uid, long signature) {
     gpgAuth gpgauth;
@@ -129,7 +144,7 @@ void gpgAuthPluginAPI::progress_cb(void *self, const char *what, int type, int c
     }
     if (!strcmp (what, "complete")) {
         gpgAuthPluginAPI* API = (gpgAuthPluginAPI*) self;
-        API->FireEvent("onkeygencomplete", FB::variant_list_of(what));
+        API->FireEvent("onkeygencomplete", "complete");
     }
 }
 

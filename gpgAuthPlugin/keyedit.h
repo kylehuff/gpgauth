@@ -20,7 +20,9 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
     /* this is for signing */
     char *response = NULL;
 
+#ifdef DEBUG
     fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
+#endif
 
     if (fd >= 0) {
         if (!strcmp (args, "keyedit.prompt")) {
@@ -84,12 +86,14 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
         current_sig = <the index of signature you wish to delete>  */
     char *response = NULL;
 
+#ifdef DEBUG
     fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
+#endif
 
     if (fd >= 0) {
         if (!strcmp (args, "keyedit.prompt")) {
             static int step = 0;
-        
+
             switch (step) {
                 case 0:
                     response = (char *) "fpr";
@@ -103,7 +107,7 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
                 case 2:
                     response = (char * ) "delsig";
                     break;
-                    
+
                 default:
                     step = 0;
                     response = (char *) "quit";
@@ -128,6 +132,109 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
             response = (char *) "y";
         } else if (!strcmp (args, "passphrase.enter")) {
             response = (char *) "";
+        }
+    }
+
+    if (response) {
+#ifdef HAVE_W32_SYSTEM
+        DWORD written;
+        WriteFile ((HANDLE) fd, response, strlen (response), &written, 0);
+        WriteFile ((HANDLE) fd, "\n", 1, &written, 0);
+#else
+        write (fd, response, strlen (response));
+        write (fd, "\n", 1);
+#endif
+    }
+    return 0;
+}
+
+gpgme_error_t
+edit_fnc_disable (void *opaque, gpgme_status_code_t status, const char *args, int fd)
+{
+  /* this works for disabling keys -
+    you must populate the global variables before calling this method for this to work -
+        current_uid = <the index of the UID which has the signature you wish to delete>
+        current_sig = <the index of signature you wish to delete>  */
+    char *response = NULL;
+
+#ifdef DEBUG
+    fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
+#endif
+
+    if (fd >= 0) {
+        if (!strcmp (args, "keyedit.prompt")) {
+            static int step = 0;
+
+            switch (step) {
+                case 0:
+                    response = (char *) "disable";
+                    break;
+                case 1:
+                	response = (char *) "disable";
+                	break;
+
+                default:
+                    step = 0;
+                    response = (char *) "quit";
+                    break;
+            }
+            step++;
+        } else if (!strcmp (args, "keyedit.save.okay")) {
+            response = (char *) "Y";
+        } else if (!strcmp (args, "passphrase.enter")) {
+            response = (char *) "";
+        } else {
+        	fprintf (stdout, "We shouldn't reach this line actually; Line: %i\n", __LINE__);
+        }
+    }
+
+    if (response) {
+#ifdef HAVE_W32_SYSTEM
+        DWORD written;
+        WriteFile ((HANDLE) fd, response, strlen (response), &written, 0);
+        WriteFile ((HANDLE) fd, "\n", 1, &written, 0);
+#else
+        write (fd, response, strlen (response));
+        write (fd, "\n", 1);
+#endif
+    }
+    return 0;
+}
+
+gpgme_error_t
+edit_fnc_enable (void *opaque, gpgme_status_code_t status, const char *args, int fd)
+{
+  /* this enableds a disabled key  */
+    char *response = NULL;
+
+#ifdef DEBUG
+    fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
+#endif
+
+    if (fd >= 0) {
+        if (!strcmp (args, "keyedit.prompt")) {
+            static int step = 0;
+
+            switch (step) {
+                case 0:
+                    response = (char *) "enable";
+                    break;
+                case 1:
+                	response = (char *) "enable";
+                	break;
+
+                default:
+                    step = 0;
+                    response = (char *) "quit";
+                    break;
+            }
+            step++;
+        } else if (!strcmp (args, "keyedit.save.okay")) {
+            response = (char *) "Y";
+        } else if (!strcmp (args, "passphrase.enter")) {
+            response = (char *) "";
+        } else {
+        	fprintf (stdout, "We shouldn't reach this line actually; Line: %i\n", __LINE__);
         }
     }
 

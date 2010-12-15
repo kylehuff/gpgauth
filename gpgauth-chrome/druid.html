@@ -164,13 +164,28 @@ body{
 
 <div id="tabs">
     <ul>
-    	<li><a href="#tabs-1">Step 1: System Check</a></li>
+    	<li><a id='tab-1-btn' href="#tabs-1">Step 1: System Check</a></li>
         <li><a href="#tabs-2">Step 2: Trust</a></li>
         <li><a href="#tabs-3">Step 3: Your Keys</a></li>
         <li><a href="#tabs-4">Step 4: Provider Keys</a></li>
     </ul>
     <div id="tabs-1">
     	<div id="step-1" style="text-align: center;">
+    		<script>
+		    $(function(){
+		        $('#tabs-1').ready(function(){
+		            doSystemCheck();
+		        });
+		        $('#tab-1-btn').click(function(){
+		        	doSystemCheck();
+		        });
+		        function doSystemCheck() {
+		        	// check for gpgconf functionality
+		        	// check the config for use-agent directive
+		        	console.log("doSystemCheck called");
+		        }
+		    });
+		    </script>
     		<div class="bound-box">
                 <p>Please review the list of requirements below and ensure your system is setup/configured to use gpgAuth authentication.</p>
 				<div style="width:100%; float:left;text-align: center;">

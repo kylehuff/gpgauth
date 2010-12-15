@@ -292,6 +292,22 @@ var gpgauthBackground = {
 	        	chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/success.html"});
 <!--	        }-->
         }
+        if (request.msg == 'error') {
+        	console.log(request.params.headers, request.params.result);
+			dvalues = gpgauthBackground.gpg_elements[request.params['domain']]
+			icon = dvalues['server_validated'] ? 'server_verified.png' : 'default.png';
+		    gpgauthBackground.gpg_elements[request.params['domain']]['error'] = request.params.headers['X-GPGAuth-Error'];
+		    gpgauthBackground.gpg_elements[request.params['domain']]['errorno'] = 7;
+		    chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup_error.html"});
+			gpgauthBackground.pulses[sender.tab.id] = {
+			    'timer': null,
+			    'icons': ['error.png', icon],
+			    'current_icon': 1,
+			    'counter': 10
+			}
+			gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+		    response = {'valid': false, 'errorno': 2, 'error': 'You have not enabled any personal keys for use with gpgAuth' };
+        }
         if (request.msg == 'doKeyImport') {
         	headers = gpgauthBackground.gpg_elements[request.domain]['headers'];
 			pubkey_url = headers['X-GPGAuth-Pubkey-URL'];
@@ -349,6 +365,7 @@ var gpgauthBackground = {
 
 		if(http.readyState == 4 && http.status == 200) {
 		    server_response = http.getResponseHeader('X-GPGAuth-User-Auth-Token')
+		    console.log(http.getAllResponseHeaders());
 		} else {
 		    server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
 		}

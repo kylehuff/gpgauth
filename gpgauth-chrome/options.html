@@ -193,7 +193,7 @@ $(function(){
             enabled = (key in enabled_keys) ? " checked" : "";
             status_text = (enabled) ? "Enabled" : "Disabled";
             default_key = (key == window.ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
-            keyobj.innerHTML = "<h3 class='private_keylist' style='height: 24px;'><a href='#'><span style='margin: 0;width: 50%;'>" + keylist[key].name + "</span></a><span class='trust' style='z-index:1000; left: 12px; top:-25px;height:22px;'>" +
+            keyobj.innerHTML = "<h3 class='private_keylist' style='height: 24px;'><a href='#'><span style='margin: 0;width: 50%;'>" + keylist[key].name + "&nbsp;&nbsp;-&nbsp;&nbsp;[0x" + key.substr(-8) + "]</span></a><span class='trust' style='z-index:1000; left: 12px; top:-25px;height:22px;'>" +
             "<input class='enable-check' id='check-" + key +"' type='checkbox'" + enabled + 
                 " onclick=\"if ('" + key + "' == window.ext.gpgauth_prefs.default_key.get()){ $(this).next()[0].className += ' ui-state-active'; return false }; (this.checked) ? window.ext.gpgauth_prefs.enabled_keys.add('" + key + "') : window.ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', 'label', 'Disabled');\"/\><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' id='default-" + key + "' " + default_key + "/\><label class='default-check' style='z-index: 0; margin-left: 0px;' for='default-" + key + "'>Set as default</label>" +
                 "</span></h3>";
@@ -288,7 +288,7 @@ $(function(){
                 $("#delsig-confirm").dialog("option", "height", "200");
             }
             $("#delsig-confirm").dialog("option", "buttons", { "Delete": function() {
-                        delsig_result = window.ext.plugin.gpgDeleteUIDSign(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1);
+        	            delsig_result = window.ext.plugin.gpgDeleteUIDSign(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1);
                         console.log(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1)
                         //$(calling_button).parent().parent()[0].removeChild($(calling_button).parent()[0]);
                         buildPublicKeylist(params[1], params[2]);
@@ -366,15 +366,24 @@ $(function(){
             if (key in pkeylist) {
                 continue;
             }
+            status = "Valid";
             keyobj = document.createElement('div');
-            if (parseInt(keylist[key].disabled) == 1)
+            if (parseInt(keylist[key].disabled) == 1) {
                 $(keyobj).addClass('disabled');
-            if (parseInt(keylist[key].expired) == 1)
+                status = "Disabled";
+            }
+            if (parseInt(keylist[key].expired) == 1) {
                 $(keyobj).addClass('invalid-key');
-            if (parseInt(keylist[key].invalid) == 1)
+                status = "Expired";
+            }
+            if (parseInt(keylist[key].invalid) == 1) {
                 $(keyobj).addClass('invalid-key');
-            if (parseInt(keylist[key].revoked) == 1)
+                status = "Invalid";
+            }
+            if (parseInt(keylist[key].revoked) == 1) {
                 $(keyobj).addClass('invalid-key');
+                status = "Revoked";
+            }
             $(keyobj).addClass('primary_key');
             if (key == openKey) {
                 $(keyobj).addClass('open_key');
@@ -394,12 +403,18 @@ $(function(){
             if (keylist[key].subkeys[0].expires > 0) {
                 expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(keylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
             }
+            if (parseInt(keylist[key].disabled) == 1) {
+            	key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='enable-" + key + "' type='button' value='Enable this Key'/\></div>";
+            } else {
+            	key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='disable-" + key + "' type='button' value='Disable this Key'/\></div>";
+            }
             uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/\>" +
                 "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/\>" +
-                "<h4>Fingerpint</h4>: " + keylist[key].fingerprint +
+                "<h4>Fingerpint:</h4> " + keylist[key].fingerprint + "<br/\>" +
+                "<h4>Status:</h4> " + status +
                 "<br/\><br/\>" +
                 "<span class='dh'>Key Options</span><hr/\>" +
-                "</div>";
+                key_option_button + "</div>";
             for (uid in keylist[key].uids) {
                 uidobj = document.createElement('div');
                 uidobj.setAttribute('class', 'uid');
@@ -446,10 +461,24 @@ $(function(){
         if (openKey) {
             wait_icon = $('#public_keylist').children('.open_key').find('a').children('.trust')[0].children(0);
             uid_list = $('#public_keylist').children('.open_key').children('h3').find('a')[0];
+			$("#dialog-modal").dialog({
+				height: 140,
+				modal: true,
+				title: "Calculating Trust"
+			}).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
             setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 500);
         }
 
         $('.uidlist').find('.open_uid').accordion("activate", 0);
+        $('.key-option-button').button().click(function(e){
+            params = this.id.split('-');
+            console.log(params[0], params[1]);
+            if (params[0] == "disable")
+            	window.ext.plugin.gpgDisableKey(params[1]);
+            else
+            	window.ext.plugin.gpgEnableKey(params[1]);
+            buildPublicKeylist(params[1], params[2]);
+        });
         $('.uid-option-button').button().click(function(e){
             params = this.id.split('-');
             console.log(params[1], 
@@ -503,9 +532,14 @@ $(function(){
         $('.public_keylist').click(function(e){
             e.stopPropagation();
             if (this.className.search('active') > -1) {
+				$("#dialog-modal").dialog({
+					height: 140,
+					modal: true,
+					title: "Calculating Trust"
+				}).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
                 wait_icon = $(this).children('a').children('.trust')[0].children(0)
                 wait_icon.style.visibility = 'visible';
-                setTimeout( function() { refresh_trust(e.target, wait_icon) }, 500);
+                setTimeout( function() { refresh_trust(e.target, wait_icon) }, 300);
             }
         });
     }
@@ -561,7 +595,7 @@ $(function(){
                     pkey_status += parseInt(keylist[key].revoked)
                     //console.log("'" + keylist[key].uids[uid].uid + "' '" + key + "' " + uid + " '" + privateKeyId + "'");
                     GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 1) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, key, uid, privateKeyId);
-                    console.log(keylist[key].uids[uid].uid, key, uid, privateKeyId, GAUTrust);
+                    //console.log(keylist[key].uids[uid].uid, key, uid, privateKeyId, GAUTrust);
                     if (GAUTrust == '?' || GAUTrust == 0) {
                         break;
                     }
@@ -571,6 +605,7 @@ $(function(){
             validity += (parseInt(keylist[key].uids[uid].invalid)) ? ' | invalid' : '';
             $(uidobj).find('.trust')[0].innerHTML = validity + ' | gpgAuth trust: ' + GAUTrust;
         });
+		$("#dialog-modal:ui-dialog").dialog( "destroy" );
         wait_icon.style.visibility = 'hidden';
     }
     $('#private_keylist').accordion({ header: 'h3.private_keylist', alwaysOpen: false,
@@ -784,6 +819,11 @@ body{
     color: #ffffff;
     overflow-x: hidden;
 }
+
+<!--.key-option-button {-->
+<!--	font-size: 12px;-->
+<!--	font-weight: normal;-->
+<!--}-->
 .invalid-key .keydetails, .disabled .keydetails {
     background-color: #F31;
     border: solid 1px #F11;
@@ -1066,6 +1106,9 @@ ul.expand ul
             </ul>
         </form>
     </p>
+</div>
+<div id="dialog-modal" title="">
+	<div id="dialog-msg"></div>
 </div>
 </body>
 </html>

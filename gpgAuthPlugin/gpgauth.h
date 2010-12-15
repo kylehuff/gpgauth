@@ -26,6 +26,7 @@ class gpgAuth {
         ~gpgAuth(void);
         gpgme_ctx_t init();
         int is_initted;
+        std::string get_preference(string preference);
         std::string set_preference(string preference, string pref_value);
         /* Method to verify the key associated with <domain> is
             valid and is signed by the user */
@@ -39,6 +40,8 @@ class gpgAuth {
         std::string gpgSignUID(string keyid, int sign_uid, string with_keyid, 
             bool local_only=1, bool trust_sign=1, string trust_sign_level="M");
         std::string gpgDeleteUIDSign(string keyid, int uid, int signature);
+        std::string gpgEnableKey(string keyid);
+        std::string gpgDisableKey(string keyid);
         std::string gpgGenKey(string key_type, string key_length, 
             string subkey_type, string subkey_length, string name_real,
             string name_comment, string name_email, string expire_date,

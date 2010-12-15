@@ -130,6 +130,9 @@ body {
 				                case 6: // Token format does not match
 				                	desc.innerHTML = "The token provided by the server is either empty, or it does not match the required format.";
 				                	break;
+				                case 7: // The server could not locate an account associated with the key id
+				                	desc.innerHTML = "The server was unable to locate a user account associated with the provided key.";
+				                	break;
 				            }
 				        }
 			    	}

@@ -111,6 +111,7 @@ var gpgAuth = {
                 chrome.extension.sendRequest({msg: this.gpgauth_headers['X-GPGAuth-Progress'],
                 	params: {'domain':document.domain,
 		                	'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL],
+		                	'headers': this.gpgauth_headers,
 		                	'result' : response.result}
 				});
 				gpgAuth.handleRefer(response, this.gpgauth_headers);
