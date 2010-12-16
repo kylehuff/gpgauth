@@ -3,7 +3,7 @@ This is a firebreath NPAPI plugin project
 Install Dependencies
 ====================
 * Download and extract firebreath
-   currently the only branch of firebreath that will function is taxilians branch which removes GUI requirements and negates the need for libgtk2.0-dev; the branch is here: https://github.com/taxilian/FireBreath.git
+   currently the only branch of firebreath that will function is firebreath-dev, which negates the need for libgtk2.0-dev and windowed plugins; the branch is here: https://github.com/firebreath/FireBreath.git
 * extract firebreath somewhere outside the gpgAuth src tree
 * Install cmake, and libgpgme11-dev (Debian: apt-get install cmake libgpgme11-dev)
 
@@ -22,7 +22,7 @@ Build gpgAuth Plugin
 * `make`
 
 
-Build Library Only
+Build Library Only (for testing methods)
 ==================
 * cd to /path/to/firebreath/projects/gpgAuthPlugin and execute:
 * `make`
@@ -41,7 +41,7 @@ The plugin should be loaded now.
 Nagivate to http://gpgauth.org/tests/head_test.php
 =======
 
-Compiling in WINDOWS
+Compiling in WINDOWS (the test binary only, instructions to compile the plugin coming soon)
 ==========================
 (if you got past the title, hold on... what a pain in the ass)
 
@@ -69,8 +69,6 @@ Open Start, Program Files, MSYS, cd to ~/gnupg
 (starting with libassusan, then gpg-error, then gpgme)
 for each directory, run './configure && make && make install'
 This compiles and installs the needed gpgme libraries into your MSYS installation (by defualt, c:\msys\1.0\usr\, NOT your windows PC..
-
-
 
 
 --- Compile gpgauth lib ---
