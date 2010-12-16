@@ -7,15 +7,15 @@
 	<key>CFBundleExecutable</key>
 	<string>gpgAuthPlugin</string>
 	<key>CFBundleGetInfoString</key>
-	<string>gpgAuthPlugin v1.0.3b, Copyright 2010 CURE|THE|ITCH</string>
+	<string>gpgAuthPlugin 1.0.3b, Copyright 2010 CURE|THE|ITCH</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.CURETHEITCH.gpgAuthPlugin</string>
+	<string>com.CURETHEITCH.gpgAuthClient</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>
 	<string>BRPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>gpgAuthPlugin v1.0.3b</string>
+	<string>gpgAuthPlugin 1.0.3b</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>

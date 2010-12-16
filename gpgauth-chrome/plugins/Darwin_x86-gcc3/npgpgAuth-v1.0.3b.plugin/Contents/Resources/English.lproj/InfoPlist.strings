@@ -1,4 +1,4 @@
 /* Localized versions of Info.plist keys */
 
-CFBundleName = "npgpgAuth-v1.0.3b.plugin";
+CFBundleName = "gpgAuthPlugin.plugin";
 NSHumanReadableCopyright = "Copyright 2010 CURE|THE|ITCH";

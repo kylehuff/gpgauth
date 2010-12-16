@@ -162,8 +162,10 @@ var gpgauthBackground = {
             for (key in JSON.parse(domain_keylist)) { domain_key = key; break; }
             if (!localStorage.enabled_keys) {
                 response = {'valid': false, 'errorno': 2, 'error': 'You have not enabled any personal keys for use with gpgAuth'};
+                dialog = 'dialogs/popup_error.html';
             } else if (!localStorage.default_key) {
                 response = {'valid': false, 'errorno': 3, 'error': 'You have not specified a default personal key to use.'};
+                dialog = 'dialogs/popup_error.html';
             } else {
                 gpgauthBackground.gpg_elements[request.params['domain']]['headers'] = request.params['headers'];
                 response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);

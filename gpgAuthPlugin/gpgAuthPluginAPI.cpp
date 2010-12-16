@@ -144,7 +144,7 @@ void gpgAuthPluginAPI::progress_cb(void *self, const char *what, int type, int c
     }
     if (!strcmp (what, "complete")) {
         gpgAuthPluginAPI* API = (gpgAuthPluginAPI*) self;
-        API->FireEvent("onkeygencomplete", "complete");
+        API->FireEvent("onkeygencomplete", FB::variant_list_of("complete"));
     }
 }
 
