@@ -1,4 +1,9 @@
-Name:    gpgAUth
+-- THIS IS NOT YET WORKING CODE --
+This is the mostly the gpgAuth specific code from the original FireGPG extension that implemented gpgAuth. The current focus is on the Chrome Extension; work will begin on this FireFox portion in January 2011.
+
+--
+
+Name:    gpgAuth
 Website: http://gpgauth.org
 Authors:
 Kyle L. Huff
