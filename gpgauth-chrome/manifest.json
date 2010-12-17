@@ -27,7 +27,8 @@
     "default_popup": "dialogs/popup.html"    // optional
   },
   "plugins": [
-  	{ "path": "plugins/Darwin_x86-gcc3/npgpgAuth-v1.0.3b.plugin", "public": false },
+    { "path": "plugins/Darwin_x86-gcc3/npgpgAuth-v1.0.3b.plugin", "public": false },
+    { "path": "plugins/Linux_x86-gcc3/npgpgAuth-v1.0.3b.so", "public": false },
     { "path": "plugins/Linux_x86-gcc3/npgpgAuth-v1.0.3b.so", "public": false },
     { "path": "plugins/WINNT_x86-msvc/npgpgAuth-v1.0.3b.dll", "public": false }
   ]
