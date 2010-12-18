@@ -18,6 +18,7 @@ SOURCE_GROUP(${PLATFORM_NAME} FILES ${PLATFORM})
 # use this to add preprocessor definitions
 add_definitions(
     -D_FILE_OFFSET_BITS=64
+    -DCMAKE_BUILD_TYPE=MinSizeRel
 )
 
 set (SOURCES
@@ -32,6 +33,8 @@ target_link_libraries(${PROJNAME}
     ${PLUGIN_INTERNAL_DEPS}
     -lgpgme
     -lgpg-error
+#    /usr/lib/libgpgme.a
+#    /lib/libgpg-error.a
     )
 
 add_dependencies(${PROJNAME}
