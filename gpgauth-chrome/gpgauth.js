@@ -49,6 +49,7 @@ var gpgAuth = {
         }
         if (!this.gpg_elements[document.domain]) {
             this.gpg_elements[document.domain] = new Array();
+            this.gpg_elements[document.domain]['port'] = (window.location.port != "") ? window.location.port : "80";
         }
         /* Extension has been loaded, make a 'HEAD' request to server for the
            current page to discover if gpgAuth enabled and any related gpgAuth
@@ -74,7 +75,8 @@ var gpgAuth = {
                 /* do server tests */
                 chrome.extension.sendRequest({msg: 'doServerTests', params: {'domain': document.domain, 
                     'server_verify_url': this.gpgauth_headers[SERVER_VERIFICATION_URL],
-                    'headers': this.gpgauth_headers }}, 
+                    'headers': this.gpgauth_headers,
+                    'port' : window.location.port }}, 
                     function(response) { gpgAuth.serverResult(response) });
             }
         } // else listen for an event here
@@ -90,8 +92,10 @@ var gpgAuth = {
             if (this.gpgauth_headers['X-GPGAuth-Progress'] == 'stage0'){
             	if (this.gpgauth_headers['X-GPGAuth-Requested'] == 'true' || response.result['valid'] == 'override') {
             	//chrome.extension.sendRequest({msg: 'getSelectedTab', params: {}});
+            	    port = (document.location.port != "") ? document.location.port : "80";
 				    chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain': document.domain, 
-				            'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL]}},
+				            'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL],
+				            'port': port }},
 				            function(response) { gpgAuth.login(response) });
 		        }
 			}

@@ -168,7 +168,7 @@ var gpgauthBackground = {
                 dialog = 'dialogs/popup_error.html';
             } else {
                 gpgauthBackground.gpg_elements[request.params['domain']]['headers'] = request.params['headers'];
-                response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url']);
+                response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url'], request.params['port']);
                 user_authenticated = request.params['headers']['X-GPGAuth-Authenticated'] == 'true' ? true : false;
                 dialog = user_authenticated && domain_key ? 'dialogs/success.html' : 'dialogs/enabled.html';
 	            if (!domain_key) {
@@ -207,7 +207,8 @@ var gpgauthBackground = {
         if (request.msg == 'doUserLogin') {
         	if (sender.tab.selected){
         		gpgauthBackground.gpg_elements[request.params['domain']]['domain'] = request.params['domain'];
-				token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url']);
+        		gpgauthBackground.gpg_elements[request.params['domain']]['port'] = request.params['port'];
+				token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url'], request.params['port']);
 				if (token_from_server['valid']){
 				    response = {
 				    	'valid': true,
@@ -313,7 +314,7 @@ var gpgauthBackground = {
         if (request.msg == 'doKeyImport') {
         	headers = gpgauthBackground.gpg_elements[request.domain]['headers'];
 			pubkey_url = headers['X-GPGAuth-Pubkey-URL'];
-
+            console.log(request);
 			if (pubkey_url) {
 				msg = null;
 				if (pubkey_url && pubkey_url[0] == "/")
@@ -351,14 +352,14 @@ var gpgauthBackground = {
      the server has been verified, or the verification has been overridden
      by the user)
     */
-    getUserToken: function(domain, login_url) {
+    getUserToken: function(domain, login_url, port) {
 		var response_headers = null;
 		var http = new XMLHttpRequest();
 		var keyid = gpgauth_prefs.default_key.get();
 		var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
         if (login_url && login_url[0] == "/")
                 login_url = login_url.substr(1, login_url.length);
-		var user_auth_url = 'http://' + domain + '/' + login_url;
+		var user_auth_url = 'http://' + domain + ":" + port + '/' + login_url;
 		http.open("POST", user_auth_url, false);
 		http.setRequestHeader('X-User-Agent', 'gpgauth v1.0.3/chrome');
 		http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
@@ -466,25 +467,35 @@ var gpgauthBackground = {
         return {'domain_key': usable_domain_keyid, 'user_key': usable_private_keyid, 'domain_key_trust': usable_domain_key_trust};
     },
 
-    doServerTests: function(domain, domain_keylist, server_verify_url) {
+    doServerTests: function(domain, domain_keylist, server_verify_url, port) {
         if (!this.gpg_elements[domain]) {
             this.gpg_elements[domain] = {};
         }
-        // The trust configuration has changed, don't use cached server validation
-        if (this.gpg_elements[domain]['trust_level'] != parseInt(gpgauth_prefs.trust_level.get())) {
-            this.gpg_elements[domain]['server_validated'] = false;
-        }
-        this.gpg_elements[domain]['cached'] = false;
-        if (!this.gpg_elements[domain]['server_validated'] == true) {
+<!--        // If the trust configuration has changed, don't use cached server validation-->
+<!--<!--        if (this.gpg_elements[domain]['trust_level'] != parseInt(gpgauth_prefs.trust_level.get())) {-->-->
+<!--<!--            this.gpg_elements[domain]['server_validated'] = false;-->-->
+<!--<!--        }-->-->
+<!--        key_results = key_results_length > 0 ? gpgauthBackground.verifyDomainKey(domain, domain_keylist) : {};-->
+<!--        // If the domain_key_trust has changed, don't use cached server validation-->
+<!--        if (parseInt(key_results['domain_key_trust']) < 0 || key_results['domain_key_trust'] == null-->
+<!--            || key_results['domain_key_trust'] > parseInt(gpgauth_prefs.trust_level.get())-->
+<!--            || this.gpg_elements[domain]['trust_level'] != parseInt(gpgauth_prefs.trust_level.get())) {-->
+<!--            this.gpg_elements[domain]['server_validated'] = false;-->
+<!--            console.log("Not using cached...");-->
+<!--        }-->
+<!--        this.gpg_elements[domain]['cached'] = false;-->
+<!--        if (!this.gpg_elements[domain]['server_validated'] == true) {-->
             if (server_verify_url && server_verify_url[0] == "/")
                 server_verify_url = server_verify_url.substr(1, server_verify_url.length);
-            this.gpg_elements[domain]['server_verify_url'] = 'http://' + domain + '/' + server_verify_url;
+            port = (port != "") ? port : "80";
+            this.gpg_elements[domain]['server_verify_url'] = 'http://' + domain + ":" + port + '/' + server_verify_url;
             key_results_length = 0;
             for (key in domain_keylist) {
             	key_results_length = 1; break;
             }
             key_results = key_results_length > 0 ? gpgauthBackground.verifyDomainKey(domain, domain_keylist) : {};
             //verify the result here, consult preferences for minimum trust level
+            console.log(key_results);
             this.gpg_elements[domain]['domain_key'] = key_results['domain_key'];
             this.gpg_elements[domain]['domain_key_trust'] = key_results['domain_key_trust'];
             this.gpg_elements[domain]['user_key'] = key_results['user_key'];
@@ -503,10 +514,10 @@ var gpgauthBackground = {
                 this.gpg_elements[domain]['server_validated'] = true;
                 return this.gpg_elements[domain];
             }
-        } else {
-            this.gpg_elements[domain]['cached'] = true;
-            return this.gpg_elements[domain];
-        }
+<!--        } else {-->
+<!--            this.gpg_elements[domain]['cached'] = true;-->
+<!--            return this.gpg_elements[domain];-->
+<!--        }-->
     },
 
 
@@ -515,6 +526,7 @@ var gpgauthBackground = {
         this.gpg_elements[domain]['server_validated'] = false;
         var http = new XMLHttpRequest();
         var params = "gpg_auth:server_verify_token=" + encodeURIComponent(encrypted_token);
+        console.log(this.gpg_elements[domain]['server_verify_url']);
         http.open("POST", this.gpg_elements[domain]['server_verify_url'], false);
         http.setRequestHeader('X-User-Agent', 'gpgauth v1.0.3/chrome');
         //Send the proper header information along with the request
