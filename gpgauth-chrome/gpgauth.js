@@ -88,10 +88,12 @@ var gpgAuth = {
         }
         if (response.result['server_validated'] == true || response.result['valid'] == 'override') {
             if (this.gpgauth_headers['X-GPGAuth-Progress'] == 'stage0'){
+            	if (this.gpgauth_headers['X-GPGAuth-Requested'] == 'true' || response.result['valid'] == 'override') {
             	//chrome.extension.sendRequest({msg: 'getSelectedTab', params: {}});
-		        chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain': document.domain, 
-		                'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL]}},
-		                function(response) { gpgAuth.login(response) });
+				    chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain': document.domain, 
+				            'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL]}},
+				            function(response) { gpgAuth.login(response) });
+		        }
 			}
         }
     },
