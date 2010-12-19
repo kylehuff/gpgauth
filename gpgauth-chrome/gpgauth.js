@@ -49,7 +49,6 @@ var gpgAuth = {
         }
         if (!this.gpg_elements[document.domain]) {
             this.gpg_elements[document.domain] = new Array();
-            this.gpg_elements[document.domain]['port'] = (window.location.port != "") ? window.location.port : "80";
         }
         /* Extension has been loaded, make a 'HEAD' request to server for the
            current page to discover if gpgAuth enabled and any related gpgAuth
@@ -75,8 +74,7 @@ var gpgAuth = {
                 /* do server tests */
                 chrome.extension.sendRequest({msg: 'doServerTests', params: {'domain': document.domain, 
                     'server_verify_url': this.gpgauth_headers[SERVER_VERIFICATION_URL],
-                    'headers': this.gpgauth_headers,
-                    'port' : window.location.port }}, 
+                    'headers': this.gpgauth_headers }}, 
                     function(response) { gpgAuth.serverResult(response) });
             }
         } // else listen for an event here
@@ -89,18 +87,12 @@ var gpgAuth = {
             console.log(response);
         }
         if (response.result['server_validated'] == true || response.result['valid'] == 'override') {
-            // the below "stage" check is commented out; I think it is better to assume it is stage0,
-            // as this method does nothing otherwise...
-            //if (this.gpgauth_headers['X-GPGAuth-Progress'] == 'stage0'){
-            	if (this.gpgauth_headers['X-GPGAuth-Requested'] == 'true' || response.result['valid'] == 'override') {
-            	//chrome.extension.sendRequest({msg: 'getSelectedTab', params: {}});
-            	    port = (document.location.port != "") ? document.location.port : "80";
-				    chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain': document.domain, 
-				            'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL],
-				            'port': port }},
-				            function(response) { gpgAuth.login(response) });
-		        }
-			//}
+        	if (this.gpgauth_headers['X-GPGAuth-Requested'] == 'true' || response.result['valid'] == 'override') {
+
+			    chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain': document.domain, 
+			            'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL] }},
+			            function(response) { gpgAuth.login(response) });
+	        }
         }
     },
 
@@ -140,7 +132,7 @@ var gpgAuth = {
 
 	logout: function(response) {
 		headers = response.result.validation.headers;
-		if (headers[USER_AUTHENTICATED] && headers[LOGOUT_URL] && headers[LOGOUT_URL][0] == "/") {
+		if (headers[USER_AUTHENTICATED] && headers[LOGOUT_URL]) {
 			window.location = headers[LOGOUT_URL];
 		}
 	},
@@ -152,12 +144,14 @@ var gpgAuth = {
         while (is_match != null) {
             is_match = re.exec(response_headers)
             if (is_match) {
-                if (is_match[1] == SERVER_VERIFICATION_URL) {
+                if (is_match[1].substr(-3) == "URL") {
                     if (is_match[2][0] != '/'){
                         /* the verification url points to another server was found
                             we are not going to continue */
                         gpgauth_headers[is_match[1]] = 'invalid';
                         break;
+                    } else {
+                        is_match[2] = document.location.origin + is_match[2];
                     }
                 }
                 gpgauth_headers[is_match[1]] = is_match[2];
