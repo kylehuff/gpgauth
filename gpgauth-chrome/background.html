@@ -240,15 +240,15 @@ var gpgauthBackground = {
             response = {'enabled': gpgauth_prefs.gpgauth_enabled.get() };
         }
         if (request.msg == 'getPopupError') {
-            var re = /^.*?\/\/(.*?\.[^0-9]{3,4})\/.*?/gi
-            domain = re.exec(request.tab.url)[1];
+            parsed_url = gpgauthBackground.parseUrl(request.tab.url);
+            domain = parsed_url['domain'];
             response = {};
             response.error = gpgauthBackground.gpg_elements[domain]['error'];
             response.errorno = gpgauthBackground.gpg_elements[domain]['errorno'];
         }
         if (request.msg == 'getPopupData'){
-            var re = /^.*?\/\/(.*?\.[^0-9]{3,4})\/.*?/gi
-            domain = re.exec(request.tab.url)[1]
+            parsed_url = gpgauthBackground.parseUrl(request.tab.url);
+            domain = parsed_url['domain'];
             response = {};
             response['popup_data'] = { 'Domain': domain, 
                 'Public Key' : gpgauthBackground.gpg_elements[domain]['domain_key'],
@@ -344,6 +344,21 @@ var gpgauthBackground = {
         // Return the response and let the connection be cleaned up.
         sendResponse({'result': response});
     },
+
+    parseUrl: function(url) {
+        var re = /^((\w+):\/\/\/?)?((\w+):?(\w+)?@)?([^\/\?:]+):?(\d+)?(\/?[^\?#;\|]+)?([;\|])?([^\?#]+)?\??([^#]+)?#?(\w*)/gi
+        result = re.exec(url);
+        return { 'url': result[0],
+            'proto_full': result[1],
+            'proto_clean': result[2],
+            'domain': result[6],
+            'port': result[7],
+            'path': result[8],
+            'query': result[11],
+            'anchor': result[12]
+        }
+    },
+
 
     /*
     Function: getUserToken
