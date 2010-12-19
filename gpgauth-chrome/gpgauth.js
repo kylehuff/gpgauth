@@ -88,8 +88,11 @@ var gpgAuth = {
         if (!response.result['valid']) {
             console.log(response);
         }
+        console.log('res 2', response);
         if (response.result['server_validated'] == true || response.result['valid'] == 'override') {
-            if (this.gpgauth_headers['X-GPGAuth-Progress'] == 'stage0'){
+            // the below "stage" check is commented out; I think it is better to assume it is stage0,
+            // as this method does nothing otherwise...
+            //if (this.gpgauth_headers['X-GPGAuth-Progress'] == 'stage0'){
             	if (this.gpgauth_headers['X-GPGAuth-Requested'] == 'true' || response.result['valid'] == 'override') {
             	//chrome.extension.sendRequest({msg: 'getSelectedTab', params: {}});
             	    port = (document.location.port != "") ? document.location.port : "80";
@@ -98,7 +101,7 @@ var gpgAuth = {
 				            'port': port }},
 				            function(response) { gpgAuth.login(response) });
 		        }
-			}
+			//}
         }
     },
 
