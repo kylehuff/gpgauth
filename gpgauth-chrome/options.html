@@ -31,151 +31,151 @@ $(function(){
         private_keylist = document.getElementById('private_keylist');
         private_keylist.innerHTML += "<div class='ui-accordion-left'></div>";
 
-		// Create the key-generate button and dialog
-		genkey_div = document.createElement('div');
-		genkey_div.style.padding = "8px 0 20px 0";
-		genkey_button = document.createElement('input');
-		genkey_button.setAttribute('value', 'Generate New Key');
-		genkey_button.setAttribute('type', 'button');
-		$(genkey_button).button().click(function(e){
-		    $("#genkey-dialog").dialog({
-		        "buttons": { 
-		            "Create": function() {
-		                form = $(this).find("#genkey-form")[0];
-		                $(form).parent().before("<div id=\"genkey-status\"> </div>");
-		                error = "";
-		                if (!form.uid_0_name.value){
-		                    error += "Name Required<br>";
-		                    $(form.uid_0_name).addClass("input-error");
-		                }
-		                if (!form.uid_0_email.value){
-		                    error += "Email Required<br>";
-		                    $(form.uid_0_email).addClass("input-error");
-		                }
-		                if (form.passphrase.value != form.pass_repeat.value){
-		                    $(form.passphrase).addClass("input-error");
-		                    $(form.pass_repeat).addClass("input-error");
-		                    $(form.passphrase).next()
-		                        .find("#passwordStrength-text")
-		                        .html("Passphrases do not match")
-		                        .css({"color": "#f00"});
-		                    error += "Passphrases do not match<br>";
-		                }
-		                if (error.length) {
-		                    $("#genkey-status").html(error)[0].style.display="block";
-		                    return false;
-		                }
-		                chrome.extension.onConnect.addListener(function(port) {
-		                    port.onMessage.addListener(function(msg) {
-		                        if (msg.type == "progress") {
-		                            data = msg.data;
-		                            if (!isNaN(data))
-		                                data = String.fromCharCode(data);
-		                            data += " ";
-		                            $("#genkey_progress")[0].innerHTML += data;
-		                        }
-		                    });
-		                });
-		                $("#genkey-form").find(".open").trigger("click");
-		                console.log("going to create a key with the following details:" + '\n' +
-		                    "Primary Key:", form.publicKey_algo.value + 
-		                      ' (' + form.publicKey_size.value + ')\n' +
-		                    "Sub Key:", form.subKey_algo.value + 
-		                      ' (' + form.subKey_size.value + ')\n' +
-		                    "name:", form.uid_0_name.value + '\n' +
-		                    "comment: [Comments not supported yet; this will be blank]\n" +
-		                    "email:", form.uid_0_email.value + '\n' +
-		                    "passphrase:", form.passphrase.value +  '\n' +
-		                    "expiration:", "Key will expire in " + form.key_expire.value + ' days');
-		                $("#genkey-dialog").dialog("option", "minHeight", 250);
-		                $("#genkey-status").html(error)[0].style.display="block";
-		                $("#genkey-status").html("Building key, please wait..");
-		                $("#genkey-status").after("<div id='genkey-status_detail' style=\"font-size: 12px; color:#fff;padding: 20px;\">This may take a long time (5 minutes or more) to complete depending on the selected options. Please be patient while the key is created. It is safe to close this window, key generation will continue in the background.<br><br><div id='genkey_progress' style='height:auto;display:block;'></div></div>");
-		                $(form)[0].style.display = 'none';
-		                $("#genkey-dialog")[0].style.height = "20";
-		                $("#genkey-dialog")[0].style.display = "none";
-		                chrome.extension.sendRequest({msg: 'async-gpgGenKey',
-		                        data: {'publicKey_algo' : form.publicKey_algo.value,
-		                        'publicKey_size' : form.publicKey_size.value,
-		                        'subKey_algo' : form.subKey_algo.value,
-		                        'subKey_size' : form.subKey_size.value, 
-		                        'uid_0_name' : form.uid_0_name.value,
-		                        'uid_0_email' : form.uid_0_email.value, 
-		                        'key_expire' : form.key_expire.value,
-		                        'passphrase' : form.passphrase.value }
-		                    }, function(response) { 
-		                        if (response.result == "queued") {
-		                            $("#genkey-dialog").dialog("option", "buttons", { 
-		                                "Close": function() {
-		                                    $("#genkey-dialog").dialog("close");
-		                                }
-		                            });
-		                        }   
-		                    });
-		            },
-		            Cancel: function() {
-		                $("#genkey-dialog").dialog("close");
-		            }
-		        },
-		        "beforeClose": function () {
-		            $(this).dialog("destroy");
-		            $("#genkey-status_detail").remove()
-		            $("#genkey-status").remove()
-		            $(this).find("#genkey-form")[0].style.display="block";
-		            $("#genkey-dialog").dialog({
-		                resizable: false,
-		                minHeight: 250,
-		                width: 630,
-		                modal: true,
-		                autoOpen: false
-		            });
-		        }
-		    });
+        // Create the key-generate button and dialog
+        genkey_div = document.createElement('div');
+        genkey_div.style.padding = "8px 0 20px 0";
+        genkey_button = document.createElement('input');
+        genkey_button.setAttribute('value', 'Generate New Key');
+        genkey_button.setAttribute('type', 'button');
+        $(genkey_button).button().click(function(e){
+            $("#genkey-dialog").dialog({
+                "buttons": { 
+                    "Create": function() {
+                        form = $(this).find("#genkey-form")[0];
+                        $(form).parent().before("<div id=\"genkey-status\"> </div>");
+                        error = "";
+                        if (!form.uid_0_name.value){
+                            error += "Name Required<br>";
+                            $(form.uid_0_name).addClass("input-error");
+                        }
+                        if (!form.uid_0_email.value){
+                            error += "Email Required<br>";
+                            $(form.uid_0_email).addClass("input-error");
+                        }
+                        if (form.passphrase.value != form.pass_repeat.value){
+                            $(form.passphrase).addClass("input-error");
+                            $(form.pass_repeat).addClass("input-error");
+                            $(form.passphrase).next()
+                                .find("#passwordStrength-text")
+                                .html("Passphrases do not match")
+                                .css({"color": "#f00"});
+                            error += "Passphrases do not match<br>";
+                        }
+                        if (error.length) {
+                            $("#genkey-status").html(error)[0].style.display="block";
+                            return false;
+                        }
+                        chrome.extension.onConnect.addListener(function(port) {
+                            port.onMessage.addListener(function(msg) {
+                                if (msg.type == "progress") {
+                                    data = msg.data;
+                                    if (!isNaN(data))
+                                        data = String.fromCharCode(data);
+                                    data += " ";
+                                    $("#genkey_progress")[0].innerHTML += data;
+                                }
+                            });
+                        });
+                        $("#genkey-form").find(".open").trigger("click");
+                        console.log("going to create a key with the following details:" + '\n' +
+                            "Primary Key:", form.publicKey_algo.value + 
+                              ' (' + form.publicKey_size.value + ')\n' +
+                            "Sub Key:", form.subKey_algo.value + 
+                              ' (' + form.subKey_size.value + ')\n' +
+                            "name:", form.uid_0_name.value + '\n' +
+                            "comment: [Comments not supported yet; this will be blank]\n" +
+                            "email:", form.uid_0_email.value + '\n' +
+                            "passphrase:", form.passphrase.value +  '\n' +
+                            "expiration:", "Key will expire in " + form.key_expire.value + ' days');
+                        $("#genkey-dialog").dialog("option", "minHeight", 250);
+                        $("#genkey-status").html(error)[0].style.display="block";
+                        $("#genkey-status").html("Building key, please wait..");
+                        $("#genkey-status").after("<div id='genkey-status_detail' style=\"font-size: 12px; color:#fff;padding: 20px;\">This may take a long time (5 minutes or more) to complete depending on the selected options. Please be patient while the key is created. It is safe to close this window, key generation will continue in the background.<br><br><div id='genkey_progress' style='height:auto;display:block;'></div></div>");
+                        $(form)[0].style.display = 'none';
+                        $("#genkey-dialog")[0].style.height = "20";
+                        $("#genkey-dialog")[0].style.display = "none";
+                        chrome.extension.sendRequest({msg: 'async-gpgGenKey',
+                                data: {'publicKey_algo' : form.publicKey_algo.value,
+                                'publicKey_size' : form.publicKey_size.value,
+                                'subKey_algo' : form.subKey_algo.value,
+                                'subKey_size' : form.subKey_size.value, 
+                                'uid_0_name' : form.uid_0_name.value,
+                                'uid_0_email' : form.uid_0_email.value, 
+                                'key_expire' : form.key_expire.value,
+                                'passphrase' : form.passphrase.value }
+                            }, function(response) { 
+                                if (response.result == "queued") {
+                                    $("#genkey-dialog").dialog("option", "buttons", { 
+                                        "Close": function() {
+                                            $("#genkey-dialog").dialog("close");
+                                        }
+                                    });
+                                }   
+                            });
+                    },
+                    Cancel: function() {
+                        $("#genkey-dialog").dialog("close");
+                    }
+                },
+                "beforeClose": function () {
+                    $(this).dialog("destroy");
+                    $("#genkey-status_detail").remove()
+                    $("#genkey-status").remove()
+                    $(this).find("#genkey-form")[0].style.display="block";
+                    $("#genkey-dialog").dialog({
+                        resizable: false,
+                        minHeight: 250,
+                        width: 630,
+                        modal: true,
+                        autoOpen: false
+                    });
+                }
+            });
 
-		    $("#genkey-form").children('input').removeClass('input-error');
-		    $("#genkey-form")[0].reset();
-		    $('.key-algo').each(function(){
-		        $(this)[0].options.selectedIndex = $(this)[0].options.length - 1;
-		        }).change(function(){
-		            if ($(this)[0].options.selectedIndex == 0){
-		                $(this).parent().next().find('.key-size')[0].options.selectedIndex = 0;
-		                $(this).parent().next().find('.key-size')[0].children(1).disabled = true;
-		                $(this).parent().next().find('.key-size')[0].children(2).disabled = true;
-		            } else {
-		                $(this).parent().next().find('.key-size')[0].children(1).disabled = false;
-		                $(this).parent().next().find('.key-size')[0].children(2).disabled = false;
-		                $(this).parent().next().find('.key-size')[0].options.selectedIndex = 1;
-		            }
-		        });
-		    $("#genkey-dialog").dialog('open');
-		    $("#genkey-form").find(".open").trigger("click");
-		});
-		$("#genkey-dialog").dialog({
-		    resizable: false,
-		    minHeight: 250,
-		    width: 630,
-		    modal: true,
-		    autoOpen: false
-		});
-		$('.passphrase').passwordStrength("#pass_repeat");
-		genkey_div.appendChild(genkey_button);
-		document.getElementById('private_keylist').appendChild(genkey_div);
+            $("#genkey-form").children('input').removeClass('input-error');
+            $("#genkey-form")[0].reset();
+            $('.key-algo').each(function(){
+                $(this)[0].options.selectedIndex = $(this)[0].options.length - 1;
+                }).change(function(){
+                    if ($(this)[0].options.selectedIndex == 0){
+                        $(this).parent().next().find('.key-size')[0].options.selectedIndex = 0;
+                        $(this).parent().next().find('.key-size')[0].children(1).disabled = true;
+                        $(this).parent().next().find('.key-size')[0].children(2).disabled = true;
+                    } else {
+                        $(this).parent().next().find('.key-size')[0].children(1).disabled = false;
+                        $(this).parent().next().find('.key-size')[0].children(2).disabled = false;
+                        $(this).parent().next().find('.key-size')[0].options.selectedIndex = 1;
+                    }
+                });
+            $("#genkey-dialog").dialog('open');
+            $("#genkey-form").find(".open").trigger("click");
+        });
+        $("#genkey-dialog").dialog({
+            resizable: false,
+            minHeight: 250,
+            width: 630,
+            modal: true,
+            autoOpen: false
+        });
+        $('.passphrase').passwordStrength("#pass_repeat");
+        genkey_div.appendChild(genkey_button);
+        document.getElementById('private_keylist').appendChild(genkey_div);
 
-		$('ul.expand').each(function(){
-		    $('li.trigger', this).filter(':first').addClass('top').end().filter(':not(.open)').next().hide();
-		    $('li.trigger', this).click(function(){
-		        height = ($("#genkey-status")) ? $("#genkey-status").height() : 0;
-		        if($(this).hasClass('open')) {
-		            $(this).removeClass('open').next().slideUp();
-		            $("#genkey-dialog").dialog("option", "minHeight", 250 + height);
-		        } else {
-		            $(this).parent().find('li.trigger').removeClass('open').next().filter(':visible').slideUp();
-		            $(this).addClass('open').next().slideDown();
-		            $("#genkey-dialog").dialog("option", "minHeight", 410 + height);
-		        }
-		    });
-		});
-		// End key generation dialog
+        $('ul.expand').each(function(){
+            $('li.trigger', this).filter(':first').addClass('top').end().filter(':not(.open)').next().hide();
+            $('li.trigger', this).click(function(){
+                height = ($("#genkey-status")) ? $("#genkey-status").height() : 0;
+                if($(this).hasClass('open')) {
+                    $(this).removeClass('open').next().slideUp();
+                    $("#genkey-dialog").dialog("option", "minHeight", 250 + height);
+                } else {
+                    $(this).parent().find('li.trigger').removeClass('open').next().filter(':visible').slideUp();
+                    $(this).addClass('open').next().slideDown();
+                    $("#genkey-dialog").dialog("option", "minHeight", 410 + height);
+                }
+            });
+        });
+        // End key generation dialog
 
         // Build keylist accordion
         var prev_key = null;
@@ -229,7 +229,7 @@ $(function(){
                 signed = 0;
                 nd_trust = false;
                 uidobjbody = document.createElement('div');
-				uidobjbody.innerHTML = "<div class='uid-options'><input class='uid-option-button' id='sign-" + key + "-" + uid + "' type='button' value='Sign this UID'/\></div><br/\>";
+                uidobjbody.innerHTML = "<div class='uid-options'><input class='uid-option-button' id='sign-" + key + "-" + uid + "' type='button' value='Sign this UID'/\></div><br/\>";
                 if (parseInt(keylist[key].uids[uid].revoked))
                     $(uidobjbody).find('.uid-option-button').addClass('uid-revoked');
                 for (sig in keylist[key].uids[uid].signatures) {
@@ -263,8 +263,8 @@ $(function(){
             uid_list = $('#public_keylist').children('.open_key').children('h3').find('a')[0];
             setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 500);
         }
-		
-		$('.uidlist').find('.open_uid').accordion("activate", 0);
+        
+        $('.uidlist').find('.open_uid').accordion("activate", 0);
         $('.uid-option-button').button().click(function(e){
             params = this.id.split('-');
             console.log(params[1], 
@@ -288,7 +288,7 @@ $(function(){
                 $("#delsig-confirm").dialog("option", "height", "200");
             }
             $("#delsig-confirm").dialog("option", "buttons", { "Delete": function() {
-        	            delsig_result = window.ext.plugin.gpgDeleteUIDSign(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1);
+                        delsig_result = window.ext.plugin.gpgDeleteUIDSign(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1);
                         console.log(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1)
                         //$(calling_button).parent().parent()[0].removeChild($(calling_button).parent()[0]);
                         buildPublicKeylist(params[1], params[2]);
@@ -404,9 +404,9 @@ $(function(){
                 expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(keylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
             }
             if (parseInt(keylist[key].disabled) == 1) {
-            	key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='enable-" + key + "' type='button' value='Enable this Key'/\></div>";
+                key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='enable-" + key + "' type='button' value='Enable this Key'/\></div>";
             } else {
-            	key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='disable-" + key + "' type='button' value='Disable this Key'/\></div>";
+                key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='disable-" + key + "' type='button' value='Disable this Key'/\></div>";
             }
             uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/\>" +
                 "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/\>" +
@@ -461,11 +461,11 @@ $(function(){
         if (openKey) {
             wait_icon = $('#public_keylist').children('.open_key').find('a').children('.trust')[0].children(0);
             uid_list = $('#public_keylist').children('.open_key').children('h3').find('a')[0];
-			$("#dialog-modal").dialog({
-				height: 140,
-				modal: true,
-				title: "Calculating Trust"
-			}).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
+            $("#dialog-modal").dialog({
+                height: 140,
+                modal: true,
+                title: "Calculating Trust"
+            }).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
             setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 500);
         }
 
@@ -474,9 +474,9 @@ $(function(){
             params = this.id.split('-');
             console.log(params[0], params[1]);
             if (params[0] == "disable")
-            	window.ext.plugin.gpgDisableKey(params[1]);
+                window.ext.plugin.gpgDisableKey(params[1]);
             else
-            	window.ext.plugin.gpgEnableKey(params[1]);
+                window.ext.plugin.gpgEnableKey(params[1]);
             buildPublicKeylist(params[1], params[2]);
         });
         $('.uid-option-button').button().click(function(e){
@@ -532,11 +532,11 @@ $(function(){
         $('.public_keylist').click(function(e){
             e.stopPropagation();
             if (this.className.search('active') > -1) {
-				$("#dialog-modal").dialog({
-					height: 140,
-					modal: true,
-					title: "Calculating Trust"
-				}).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
+                $("#dialog-modal").dialog({
+                    height: 140,
+                    modal: true,
+                    title: "Calculating Trust"
+                }).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
                 wait_icon = $(this).children('a').children('.trust')[0].children(0)
                 wait_icon.style.visibility = 'visible';
                 setTimeout( function() { refresh_trust(e.target, wait_icon) }, 300);
@@ -605,7 +605,7 @@ $(function(){
             validity += (parseInt(keylist[key].uids[uid].invalid)) ? ' | invalid' : '';
             $(uidobj).find('.trust')[0].innerHTML = validity + ' | gpgAuth trust: ' + GAUTrust;
         });
-		$("#dialog-modal:ui-dialog").dialog( "destroy" );
+        $("#dialog-modal:ui-dialog").dialog( "destroy" );
         wait_icon.style.visibility = 'hidden';
     }
     $('#private_keylist').accordion({ header: 'h3.private_keylist', alwaysOpen: false,
@@ -686,7 +686,7 @@ body{
 }
 
 #tabs {
-	margin: auto;
+    margin: auto;
 }
 
 #header-image {
@@ -795,10 +795,10 @@ body{
 }
 
 .uidlist {
-	padding-right: 20px;
+    padding-right: 20px;
 }
 .uid {
-	width: 100%;
+    width: 100%;
 }
 .trust {
     right: 0;
@@ -821,8 +821,8 @@ body{
 }
 
 <!--.key-option-button {-->
-<!--	font-size: 12px;-->
-<!--	font-weight: normal;-->
+<!--    font-size: 12px;-->
+<!--    font-weight: normal;-->
 <!--}-->
 .invalid-key .keydetails, .disabled .keydetails {
     background-color: #F31;
@@ -1108,7 +1108,7 @@ ul.expand ul
     </p>
 </div>
 <div id="dialog-modal" title="">
-	<div id="dialog-msg"></div>
+    <div id="dialog-msg"></div>
 </div>
 </body>
 </html>

@@ -13,8 +13,8 @@ SERVICE_SIGNUP_URL = 'X-GPGAuth-Signup-URL'         /* URL to sign-up for accoun
 SERVICE_MIGRATION_URL = 'X-GPGAuth-Migration-URL'   /* URL to migrate legacy UN/PW auth to gpgAuth - or to setup gpgAuth for an existing account */
 LOGIN_METHOD = 'X-GPGAuth-Method'                   /* POST?, blah, blah */
 SERVER_VERIFICATION_URL = 'X-GPGAuth-Verify-URL'    /* URL to perform server verification (must be relative?) */
-USER_AUTHENTICATED = 'X-GPGAuth-Authenticated'		/* Header to indicate if the user is currently authenticated */
-LOGOUT_URL = 'X-GPGAuth-Logout-URL'					/* URL to perform logout of the user */
+USER_AUTHENTICATED = 'X-GPGAuth-Authenticated'        /* Header to indicate if the user is currently authenticated */
+LOGOUT_URL = 'X-GPGAuth-Logout-URL'                    /* URL to perform logout of the user */
 /* End Constants */
 
 
@@ -63,7 +63,7 @@ var gpgAuth = {
         /* Make the request */
         response_headers = request.getAllResponseHeaders()
         /* Create an object to store any gpgAuth specific headers returned from the server. */
-		this.gpgauth_headers = gpgAuth.getHeaders(response_headers)
+        this.gpgauth_headers = gpgAuth.getHeaders(response_headers)
 
         this.plugin_loaded = false;
         /* if gpgAuth headers were found, send a message to background.html
@@ -87,12 +87,12 @@ var gpgAuth = {
             console.log(response);
         }
         if (response.result['server_validated'] == true || response.result['valid'] == 'override') {
-        	if (this.gpgauth_headers['X-GPGAuth-Requested'] == 'true' || response.result['valid'] == 'override') {
+            if (this.gpgauth_headers['X-GPGAuth-Requested'] == 'true' || response.result['valid'] == 'override') {
 
-			    chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain': document.domain, 
-			            'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL] }},
-			            function(response) { gpgAuth.login(response) });
-	        }
+                chrome.extension.sendRequest({msg: 'doUserLogin', params: {'domain': document.domain, 
+                        'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL] }},
+                        function(response) { gpgAuth.login(response) });
+            }
         }
     },
 
@@ -109,12 +109,12 @@ var gpgAuth = {
             if(http.readyState == 4 && http.status == 200) {
                 this.gpgauth_headers = gpgAuth.getHeaders(http.getAllResponseHeaders());
                 chrome.extension.sendRequest({msg: this.gpgauth_headers['X-GPGAuth-Progress'],
-                	params: {'domain':document.domain,
-		                	'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL],
-		                	'headers': this.gpgauth_headers,
-		                	'result' : response.result}
-				});
-				gpgAuth.handleRefer(response, this.gpgauth_headers);
+                    params: {'domain':document.domain,
+                            'service_login_url': this.gpgauth_headers[SERVICE_LOGIN_URL],
+                            'headers': this.gpgauth_headers,
+                            'result' : response.result}
+                });
+                gpgAuth.handleRefer(response, this.gpgauth_headers);
             } else {
                 console.log(http.getAllResponseHeaders());
                 console.log("Status: " + http.status + "<br>Resposne:<br>" + http.responseText);
@@ -123,19 +123,19 @@ var gpgAuth = {
     },
     
     handleRefer: function(response, headers, domain) {
-    	console.log("asked to proceed to page:", response);
-    	next = headers['X-GPGAuth-Refer'];
-    	if (next && next[0] == "/") {
-    		window.location = next;
-    	}
+        console.log("asked to proceed to page:", response);
+        next = headers['X-GPGAuth-Refer'];
+        if (next && next[0] == "/") {
+            window.location = next;
+        }
     },
 
-	logout: function(response) {
-		headers = response.result.validation.headers;
-		if (headers[USER_AUTHENTICATED] && headers[LOGOUT_URL]) {
-			window.location = headers[LOGOUT_URL];
-		}
-	},
+    logout: function(response) {
+        headers = response.result.validation.headers;
+        if (headers[USER_AUTHENTICATED] && headers[LOGOUT_URL]) {
+            window.location = headers[LOGOUT_URL];
+        }
+    },
 
     getHeaders: function(response_headers) {
         var gpgauth_headers = { 'length': 0 };

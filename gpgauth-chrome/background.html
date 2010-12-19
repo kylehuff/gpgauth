@@ -135,20 +135,20 @@ var gpgauthBackground = {
         response = null;
         // Show the page action for the tab that the sender (content script) was on.
         if (request.msg == 'show') {
-        	headers = request.params['headers'];
-        	//headers = gpgauthBackground.gpg_elements[request.params['domain']]['headers'];
-			user_authenticated = headers['X-GPGAuth-Authenticated'] == 'true' ? true : false;
-			if (gpgauthBackground.gpg_elements[request.params['domain']]) {
-		        if (gpgauthBackground.gpg_elements[request.params['domain']]['server_validated'] == true) {
-		        	icon = user_authenticated ? 'images/badges/verified_auth.png' : 'images/badges/server_verified.png';
-		        } else {
-		        	icon = user_authenticated ? 'images/badges/authenticated.png' : 'images/badges/default.png';
-		        }
-		        chrome.pageAction.setIcon({
-		            tabId: sender.tab.id,
-		            path: icon
-		        });
-		    }
+            headers = request.params['headers'];
+            //headers = gpgauthBackground.gpg_elements[request.params['domain']]['headers'];
+            user_authenticated = headers['X-GPGAuth-Authenticated'] == 'true' ? true : false;
+            if (gpgauthBackground.gpg_elements[request.params['domain']]) {
+                if (gpgauthBackground.gpg_elements[request.params['domain']]['server_validated'] == true) {
+                    icon = user_authenticated ? 'images/badges/verified_auth.png' : 'images/badges/server_verified.png';
+                } else {
+                    icon = user_authenticated ? 'images/badges/authenticated.png' : 'images/badges/default.png';
+                }
+                chrome.pageAction.setIcon({
+                    tabId: sender.tab.id,
+                    path: icon
+                });
+            }
             chrome.pageAction.show(sender.tab.id);
             chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup.html"});
         }
@@ -171,21 +171,21 @@ var gpgauthBackground = {
                 response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url'], request.params['port']);
                 user_authenticated = request.params['headers']['X-GPGAuth-Authenticated'] == 'true' ? true : false;
                 dialog = user_authenticated && domain_key ? 'dialogs/success.html' : 'dialogs/enabled.html';
-	            if (!domain_key) {
-	                response['valid'] = false;
-	                response['errorno'] = 1;
-	                response['error'] = 'Server key not found';
-	                dialog = 'dialogs/popup_error.html';
-	                if (user_authenticated) {
-	                	dialog = 'dialogs/success.html';
-	                }
-	            }
+                if (!domain_key) {
+                    response['valid'] = false;
+                    response['errorno'] = 1;
+                    response['error'] = 'Server key not found';
+                    dialog = 'dialogs/popup_error.html';
+                    if (user_authenticated) {
+                        dialog = 'dialogs/success.html';
+                    }
+                }
                 chrome.pageAction.setPopup({tabId: sender.tab.id, popup: dialog});
                 if (response['server_validated'] == true) {
-                	icon = user_authenticated ? 'images/badges/verified_auth.png' : 'images/badges/server_verified.png';
-                	if (gpgauthBackground.pulses[sender.tab.id] != null) {
-	                	clearInterval(gpgauthBackground.pulses[sender.tab.id]['timer']);
-	                }
+                    icon = user_authenticated ? 'images/badges/verified_auth.png' : 'images/badges/server_verified.png';
+                    if (gpgauthBackground.pulses[sender.tab.id] != null) {
+                        clearInterval(gpgauthBackground.pulses[sender.tab.id]['timer']);
+                    }
                     response = {'server_validated': true, 'validation': response};
                 } else {
                     icon = user_authenticated ? 'images/badges/authenticated.png' : 'images/badges/default.png';
@@ -205,37 +205,37 @@ var gpgauthBackground = {
             });
         }
         if (request.msg == 'doUserLogin') {
-        	if (sender.tab.selected){
-        		gpgauthBackground.gpg_elements[request.params['domain']]['domain'] = request.params['domain'];
-        		gpgauthBackground.gpg_elements[request.params['domain']]['port'] = request.params['port'];
-				token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url'], request.params['port']);
-				if (token_from_server['valid']){
-				    response = {
-				    	'valid': true,
-				    	'decrypted_token': token_from_server['plaintext'],
-				    	'keyid': token_from_server['keyid'],
-				    	'validation' : gpgauthBackground.gpg_elements[request.params['domain']]
-				    }
-				} else {
-					dvalues = gpgauthBackground.gpg_elements[request.params['domain']]
-					icon = dvalues['server_validated'] ? 'server_verified.png' : 'default.png';
-				    gpgauthBackground.gpg_elements[request.params['domain']]['error'] = "Unable to decrypt token";
-				    gpgauthBackground.gpg_elements[request.params['domain']]['errorno'] = token_from_server['errorno'];
-				    gpgauthBackground.gpg_elements[request.params['domain']]['cipher'] = token_from_server['cipher'];
-				    chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup_error.html"});
-					gpgauthBackground.pulses[sender.tab.id] = {
-					    'timer': null,
-					    'icons': ['error.png', icon],
-					    'current_icon': 1,
-					    'counter': 10
-					}
-					gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
-				    response = {'valid': false };
-				}
-			} else {
-				response = {'valid': false };
-			}
-	    }
+            if (sender.tab.selected){
+                gpgauthBackground.gpg_elements[request.params['domain']]['domain'] = request.params['domain'];
+                gpgauthBackground.gpg_elements[request.params['domain']]['port'] = request.params['port'];
+                token_from_server = gpgauthBackground.getUserToken(request.params['domain'], request.params['service_login_url'], request.params['port']);
+                if (token_from_server['valid']){
+                    response = {
+                        'valid': true,
+                        'decrypted_token': token_from_server['plaintext'],
+                        'keyid': token_from_server['keyid'],
+                        'validation' : gpgauthBackground.gpg_elements[request.params['domain']]
+                    }
+                } else {
+                    dvalues = gpgauthBackground.gpg_elements[request.params['domain']]
+                    icon = dvalues['server_validated'] ? 'server_verified.png' : 'default.png';
+                    gpgauthBackground.gpg_elements[request.params['domain']]['error'] = "Unable to decrypt token";
+                    gpgauthBackground.gpg_elements[request.params['domain']]['errorno'] = token_from_server['errorno'];
+                    gpgauthBackground.gpg_elements[request.params['domain']]['cipher'] = token_from_server['cipher'];
+                    chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup_error.html"});
+                    gpgauthBackground.pulses[sender.tab.id] = {
+                        'timer': null,
+                        'icons': ['error.png', icon],
+                        'current_icon': 1,
+                        'counter': 10
+                    }
+                    gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+                    response = {'valid': false };
+                }
+            } else {
+                response = {'valid': false };
+            }
+        }
         if (request.msg == 'enabled') {
             response = {'enabled': gpgauth_prefs.gpgauth_enabled.get() };
         }
@@ -282,57 +282,57 @@ var gpgauthBackground = {
             response = "queued";
         }
         if (request.msg == 'complete' || request.msg == 'stage2') {
-        	if (gpgauthBackground.pulses[sender.tab.id] != null) {
-            	clearInterval(gpgauthBackground.pulses[sender.tab.id]['timer']);
+            if (gpgauthBackground.pulses[sender.tab.id] != null) {
+                clearInterval(gpgauthBackground.pulses[sender.tab.id]['timer']);
             }
-			chrome.pageAction.setIcon({
+            chrome.pageAction.setIcon({
                 tabId: sender.tab.id,
                 path: 'images/badges/authenticated.png'
             });
-        	chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/success.html"});
+            chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/success.html"});
         }
         if (request.msg == 'error') {
-        	console.log(request.params.headers, request.params.result);
-			dvalues = gpgauthBackground.gpg_elements[request.params['domain']]
-			icon = dvalues['server_validated'] ? 'server_verified.png' : 'default.png';
-		    gpgauthBackground.gpg_elements[request.params['domain']]['error'] = request.params.headers['X-GPGAuth-Error'];
-		    gpgauthBackground.gpg_elements[request.params['domain']]['errorno'] = 7;
-		    chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup_error.html"});
-			gpgauthBackground.pulses[sender.tab.id] = {
-			    'timer': null,
-			    'icons': ['error.png', icon],
-			    'current_icon': 1,
-			    'counter': 10
-			}
-			gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
-		    response = {'valid': false, 'errorno': 2, 'error': 'You have not enabled any personal keys for use with gpgAuth' };
+            console.log(request.params.headers, request.params.result);
+            dvalues = gpgauthBackground.gpg_elements[request.params['domain']]
+            icon = dvalues['server_validated'] ? 'server_verified.png' : 'default.png';
+            gpgauthBackground.gpg_elements[request.params['domain']]['error'] = request.params.headers['X-GPGAuth-Error'];
+            gpgauthBackground.gpg_elements[request.params['domain']]['errorno'] = 7;
+            chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup_error.html"});
+            gpgauthBackground.pulses[sender.tab.id] = {
+                'timer': null,
+                'icons': ['error.png', icon],
+                'current_icon': 1,
+                'counter': 10
+            }
+            gpgauthBackground.pulses[sender.tab.id]['timer'] = setInterval('gpgauthBackground.pulse(' + sender.tab.id + ')', 500);
+            response = {'valid': false, 'errorno': 2, 'error': 'You have not enabled any personal keys for use with gpgAuth' };
         }
         if (request.msg == 'doKeyImport') {
-        	headers = gpgauthBackground.gpg_elements[request.domain]['headers'];
-			pubkey_url = headers['X-GPGAuth-Pubkey-URL'];
+            headers = gpgauthBackground.gpg_elements[request.domain]['headers'];
+            pubkey_url = headers['X-GPGAuth-Pubkey-URL'];
             console.log(request);
-			if (pubkey_url) {
-				msg = null;
-				var http = new XMLHttpRequest();
-				http.open("GET", import_url + "#" + new Date().getTime(), false);
-				http.setRequestHeader('X-User-Agent', 'gpgauth v1.0.3/chrome');
-				http.send(null);
+            if (pubkey_url) {
+                msg = null;
+                var http = new XMLHttpRequest();
+                http.open("GET", import_url + "#" + new Date().getTime(), false);
+                http.setRequestHeader('X-User-Agent', 'gpgauth v1.0.3/chrome');
+                http.send(null);
 
-				if(http.readyState == 4 && http.status == 200) {
-					validity = true;
-					msg = http.responseText;
-					msg = plugin.gpgImportKey(msg);
-					//console.log(http.responseText);
-				} else {
-					validity = false;
-					msg = "Pubkey not found";
-				}
-			} else {
-				// pubkey url not found
-				validity = false;
-				msg = "No Pubkey URL Specified";
-			}
-        	response = { 'valid': validity, 'msg': msg };
+                if(http.readyState == 4 && http.status == 200) {
+                    validity = true;
+                    msg = http.responseText;
+                    msg = plugin.gpgImportKey(msg);
+                    //console.log(http.responseText);
+                } else {
+                    validity = false;
+                    msg = "Pubkey not found";
+                }
+            } else {
+                // pubkey url not found
+                validity = false;
+                msg = "No Pubkey URL Specified";
+            }
+            response = { 'valid': validity, 'msg': msg };
         }
         // Return the response and let the connection be cleaned up.
         sendResponse({'result': response});
@@ -361,55 +361,55 @@ var gpgauthBackground = {
      by the user)
     */
     getUserToken: function(domain, login_url, port) {
-		var response_headers = null;
-		var http = new XMLHttpRequest();
-		var keyid = gpgauth_prefs.default_key.get();
-		var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
-		http.open("POST", login_url, false);
-		http.setRequestHeader('X-User-Agent', 'gpgauth v1.0.3/chrome');
-		http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-		http.send(params);
-		console.log(params);
+        var response_headers = null;
+        var http = new XMLHttpRequest();
+        var keyid = gpgauth_prefs.default_key.get();
+        var params = "gpg_auth:keyid=" + encodeURIComponent(keyid);
+        http.open("POST", login_url, false);
+        http.setRequestHeader('X-User-Agent', 'gpgauth v1.0.3/chrome');
+        http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        http.send(params);
+        console.log(params);
 
-		if(http.readyState == 4 && http.status == 200) {
-		    server_response = http.getResponseHeader('X-GPGAuth-User-Auth-Token')
-		    console.log(http.getAllResponseHeaders());
-		} else {
-		    server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
-		}
+        if(http.readyState == 4 && http.status == 200) {
+            server_response = http.getResponseHeader('X-GPGAuth-User-Auth-Token')
+            console.log(http.getAllResponseHeaders());
+        } else {
+            server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
+        }
 
-		// Here we check to see if the server has reported any issues with key
-		if (server_response == "get_key failed") {
-			return response = {'valid': false, 'errorno': 4, 'error': 
-				'The server was unable to find your PublicKey (' + keyid + ').'
-			};
-		}
+        // Here we check to see if the server has reported any issues with key
+        if (server_response == "get_key failed") {
+            return response = {'valid': false, 'errorno': 4, 'error': 
+                'The server was unable to find your PublicKey (' + keyid + ').'
+            };
+        }
 
-		if (this.debug){
-		    console.log(http.responseText);
-		    console.log(unescape(server_response));
-		}
+        if (this.debug){
+            console.log(http.responseText);
+            console.log(unescape(server_response));
+        }
 
-		cipher = unescape(server_response).replace(/\\\+/g, ' ').replace(/\\./g, '.');
-		plaintext = plugin.gpgDecrypt(cipher);
-		console.log('plaintext: ', plaintext);
+        cipher = unescape(server_response).replace(/\\\+/g, ' ').replace(/\\./g, '.');
+        plaintext = plugin.gpgDecrypt(cipher);
+        console.log('plaintext: ', plaintext);
 
-		var random_re = new RegExp("^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i");
-		// if the response from the server matches both the format and content of the original token, server is validated
-		if (plaintext && random_re.test(plaintext)) {
-		    console.log("token matches gpgAuth format, it is safe to return to the server decrypted");
-		    return {'valid': true, 'plaintext': plaintext, 'keyid': keyid};
-		} else {
-			error_re = new RegExp("bad passphrase", "i");
-			if (error_re.test(plaintext)){
-				console.log("the passphrase was incorrect or cancelled");
-				errorno = 5;
-			} else {
-			    console.log("the token does not match the gpgAuth format, or is null");
-			    errorno = 6;
-			}
-		    return {'valid': false, 'errorno': errorno, 'cipher': cipher};
-		}
+        var random_re = new RegExp("^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i");
+        // if the response from the server matches both the format and content of the original token, server is validated
+        if (plaintext && random_re.test(plaintext)) {
+            console.log("token matches gpgAuth format, it is safe to return to the server decrypted");
+            return {'valid': true, 'plaintext': plaintext, 'keyid': keyid};
+        } else {
+            error_re = new RegExp("bad passphrase", "i");
+            if (error_re.test(plaintext)){
+                console.log("the passphrase was incorrect or cancelled");
+                errorno = 5;
+            } else {
+                console.log("the token does not match the gpgAuth format, or is null");
+                errorno = 6;
+            }
+            return {'valid': false, 'errorno': errorno, 'cipher': cipher};
+        }
     },
 
     /*
@@ -422,7 +422,7 @@ var gpgauthBackground = {
         // first get a list of selected private keys for the user -
         var private_keylist = gpgauth_prefs.enabled_keys.get();
         if(!private_keylist) {
-        	private_keylist = {};
+            private_keylist = {};
         }
 
         var keylist = JSON.parse(plugin.getKeyList());
@@ -442,32 +442,32 @@ var gpgauthBackground = {
         usable_domain_key_trust = null;
         trust = -1;
         if (domain_keylist) {
-		    for (uid in domain_keylist[domain_key].uids) {
-		    	if (domain_keylist[key].uids[uid].uid == domain) {
-		    		uid = uid;
-		    		break;
-		    	}
-		    }
-		    for (key in domain_keylist) { domain_key = key; break; }
-		    for (privateKeyId in private_keylist) {
-		        if (!private_keylist[privateKeyId].keystatus && 
-		            privateKeyId in gpgauth_prefs.enabled_keys.get()){
-		            pkey_status = 0;
-	<!--                pkey_status += parseInt(keylist[domain_key].expired)-->
-	<!--                pkey_status += parseInt(keylist[domain_key].disabled)-->
-	<!--                pkey_status += parseInt(keylist[domain_key].invalid)-->
-	<!--                pkey_status += parseInt(keylist[domain_key].revoked)-->
-		            GAUTrust = (keylist[domain_key].uids[0].signatures.length < 1) ? '?' : plugin.verifyDomainKey(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId);
-<!--		            console.log(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId, GAUTrust);-->
-			        usable_domain_keyid = domain_key;
-			        usable_private_keyid = privateKeyId;
-			        usable_domain_key_trust = GAUTrust;
-		            if (GAUTrust == '?' || GAUTrust == 0) {
-		                break;
-		            }
-		        }
-		    }
-		}
+            for (uid in domain_keylist[domain_key].uids) {
+                if (domain_keylist[key].uids[uid].uid == domain) {
+                    uid = uid;
+                    break;
+                }
+            }
+            for (key in domain_keylist) { domain_key = key; break; }
+            for (privateKeyId in private_keylist) {
+                if (!private_keylist[privateKeyId].keystatus && 
+                    privateKeyId in gpgauth_prefs.enabled_keys.get()){
+                    pkey_status = 0;
+    <!--                pkey_status += parseInt(keylist[domain_key].expired)-->
+    <!--                pkey_status += parseInt(keylist[domain_key].disabled)-->
+    <!--                pkey_status += parseInt(keylist[domain_key].invalid)-->
+    <!--                pkey_status += parseInt(keylist[domain_key].revoked)-->
+                    GAUTrust = (keylist[domain_key].uids[0].signatures.length < 1) ? '?' : plugin.verifyDomainKey(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId);
+<!--                    console.log(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId, GAUTrust);-->
+                    usable_domain_keyid = domain_key;
+                    usable_private_keyid = privateKeyId;
+                    usable_domain_key_trust = GAUTrust;
+                    if (GAUTrust == '?' || GAUTrust == 0) {
+                        break;
+                    }
+                }
+            }
+        }
 
         return {'domain_key': usable_domain_keyid, 'user_key': usable_private_keyid, 'domain_key_trust': usable_domain_key_trust};
     },
@@ -479,7 +479,7 @@ var gpgauthBackground = {
         this.gpg_elements[domain]['server_verify_url'] = server_verify_url;
         key_results_length = 0;
         for (key in domain_keylist) {
-        	key_results_length = 1; break;
+            key_results_length = 1; break;
         }
         key_results = key_results_length > 0 ? gpgauthBackground.verifyDomainKey(domain, domain_keylist) : {};
         //verify the result here, consult preferences for minimum trust level
@@ -591,7 +591,7 @@ chrome.extension.onRequest.addListener(gpgauthBackground.onRequest);
 </script>
 </head>
 <body>
-	<script src="analytics.js"></script>
+    <script src="analytics.js"></script>
 </body>
 <script>
     gpgauthBackground.init();

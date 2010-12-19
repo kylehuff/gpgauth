@@ -53,21 +53,21 @@ body {
     function callDoUserLogout(response) {
         response.result['valid'] = 'override';
         obj = response;
-		
+        
         code = "response = {};" +
-        	"response.result = { 'popup_data' : {}, 'validation' : {}};";
+            "response.result = { 'popup_data' : {}, 'validation' : {}};";
         for (param in response.result.popup_data) {
-        	code += "response.result['popup_data']['" + param + "'] = '" + response.result.popup_data[param] + "';";
+            code += "response.result['popup_data']['" + param + "'] = '" + response.result.popup_data[param] + "';";
         }
         for (param in response.result.validation) {
-        	if (response.result.validation[param].toString() == "[object Object]") {
-        		code += "response.result['validation']['" + param + "'] = {};";
-        		for (obj in response.result.validation[param]) {
-	        		code += "response.result['validation']['" + param + "']['" + obj + "'] = '" + response.result.validation[param][obj] + "';";
-	        	}
-        	} else {
-	        	code += "response.result['validation']['" + param + "'] = '" + response.result.validation[param] + "';";
-	        }
+            if (response.result.validation[param].toString() == "[object Object]") {
+                code += "response.result['validation']['" + param + "'] = {};";
+                for (obj in response.result.validation[param]) {
+                    code += "response.result['validation']['" + param + "']['" + obj + "'] = '" + response.result.validation[param][obj] + "';";
+                }
+            } else {
+                code += "response.result['validation']['" + param + "'] = '" + response.result.validation[param] + "';";
+            }
         }
         code += "response.result['valid'] = 'override';" +
         "gpgAuth.logout(response);";
