@@ -68,6 +68,21 @@ body {
     </div>
 </body>
 <script>
+
+    function parseUrl(url) {
+        var re = /^((\w+):\/\/\/?)?((\w+):?(\w+)?@)?([^\/\?:]+):?(\d+)?(\/?[^\?#;\|]+)?([;\|])?([^\?#]+)?\??([^#]+)?#?(\w*)/gi
+        result = re.exec(url);
+        return { 'url': result[0],
+            'proto_full': result[1],
+            'proto_clean': result[2],
+            'domain': result[6],
+            'port': result[7],
+            'path': result[8],
+            'query': result[11],
+            'anchor': result[12]
+        }
+    }
+    
     function callDoUserLogin(response) {
         response.result['valid'] = 'override';
         code = "response = {};" +
@@ -82,8 +97,8 @@ body {
     
     function initiateImport(){
     	chrome.tabs.getSelected(null, function(_tab) {
-            var re = /^.*?\/\/(.*?\.[^0-9]{3,4})\/.*?/gi
-            domain = re.exec(_tab.url)[1]
+    	    result = parseUrl(_tab.url);
+            domain = result['domain'];
 	    	console.log(_tab.url, domain);
 			chrome.extension.sendRequest({msg: 'doKeyImport', 'tab': _tab, 'domain': domain},
 				function(response) {
