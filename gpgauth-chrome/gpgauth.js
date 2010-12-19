@@ -88,7 +88,6 @@ var gpgAuth = {
         if (!response.result['valid']) {
             console.log(response);
         }
-        console.log('res 2', response);
         if (response.result['server_validated'] == true || response.result['valid'] == 'override') {
             // the below "stage" check is commented out; I think it is better to assume it is stage0,
             // as this method does nothing otherwise...

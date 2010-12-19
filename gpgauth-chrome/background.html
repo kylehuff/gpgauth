@@ -186,10 +186,10 @@ var gpgauthBackground = {
                 	if (gpgauthBackground.pulses[sender.tab.id] != null) {
 	                	clearInterval(gpgauthBackground.pulses[sender.tab.id]['timer']);
 	                }
-                    response = {'server_validated': true, 'cached': response['cached'], 'validation': response};
+                    response = {'server_validated': true, 'validation': response};
                 } else {
                     icon = user_authenticated ? 'images/badges/authenticated.png' : 'images/badges/default.png';
-                    response = {'server_validated': false, 'cached': response['cached'], 'validation': response};
+                    response = {'server_validated': false, 'validation': response};
                 }
             }
             if (response['error']) {
@@ -514,7 +514,7 @@ var gpgauthBackground = {
             this.gpg_elements[domain]['domain_key'] = key_results['domain_key'];
             this.gpg_elements[domain]['domain_key_trust'] = key_results['domain_key_trust'];
             this.gpg_elements[domain]['user_key'] = key_results['user_key'];
-            this.gpg_elements[domain]['cached'] = false;
+<!--            this.gpg_elements[domain]['cached'] = false;-->
             this.gpg_elements[domain]['trust_level'] = parseInt(gpgauth_prefs.trust_level.get())
             if (parseInt(key_results['domain_key_trust']) < 0 || key_results['domain_key_trust'] == null
                 || key_results['domain_key_trust'] > parseInt(gpgauth_prefs.trust_level.get())) {
