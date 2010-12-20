@@ -314,7 +314,7 @@ var gpgauthBackground = {
             if (pubkey_url) {
                 msg = null;
                 var http = new XMLHttpRequest();
-                http.open("GET", import_url + "#" + new Date().getTime(), false);
+                http.open("GET", pubkey_url + "#" + new Date().getTime(), false);
                 http.setRequestHeader('X-User-Agent', 'gpgauth v1.0.3/chrome');
                 http.send(null);
 
