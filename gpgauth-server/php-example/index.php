@@ -105,7 +105,8 @@ if(!session_is_registered($_SESSION['keyid'])){
 			// attempt to encrypt it to the user, or return any failure.
 			try {
 			  $gpg->addencryptkey($recipient);
-			  $ciphertext = $gpg->encrypt($plaintext);
+	  		  $gpg->addsignkey('FULL KEY FINGERPRINT','passphrase, if there is one')
+			  $ciphertext = $gpg->encryptsign($plaintext);
 			  $server_response = $token;
 			  // This header holds the encrypted token that is passed to the client
 			  header('X-GPGAuth-User-Auth-Token: ' . quotemeta(urlencode($ciphertext)));
