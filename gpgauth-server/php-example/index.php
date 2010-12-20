@@ -16,7 +16,10 @@ header('X-GPGAuth-Logout-URL: /tests/php/index.php?logout');
 // that is used to allow the client to import the servers pubic key.
 header('X-GPGAuth-Pubkey-URL: /tests/gpgauth.org.pub');
 $CURRENT_PAGE = "gpgAuth Authentication tests start";
-$PAGE_CONTENT = "This page advertises the gpgAuth headers";
+$PAGE_CONTENT = "<p>This page advertises the gpgAuth headers</p>";
+$PAGE_CONTENT .= "<p>If the extension is installed correctly, you should see the gpgAuth logo in the address bar on the far right.</p>";
+$PAGE_CONTENT .= "<p>If you have the signed the key associated with this domain, you should see a \"Login\" button if you click on the logo in the address bar. If you have not signed the key, you will see that the server is not verified, but you can still log in using the \"Log in anyway\" button. If you want to test the automatic login, just include \"?protected_content\" to the end of the URL (NOTE: automatic login will not be attempted if the server key is not validated).</p>";
+
 
 // Database Variables
 $dbHost = "AVALIDHOST";
@@ -42,15 +45,15 @@ if(!session_is_registered($_SESSION['keyid'])){
 	// by default, this test page will automatically attempt to login
 	// unless the user has landed on the logout page, or if the parameter
 	// "no_auto_login" has been appended to the querystring.
-	$request_gpgauth = "true";
+	$request_gpgauth = "false";
 	foreach ($_GET as $key => $value) {
-		if ($key == "no_auto_login") {
-			$request_gpgauth = "false";
+		if ($key == "protected_content") {
+			$request_gpgauth = "true";
 		}
 	}
 	foreach ($_GET as $key => $value) {
-		if ($key == "logout") {
-			$request_gpgauth = "false";
+		if ($key == "login") {
+			$request_gpgauth = "true";
 		}
 	}
 	// Set the Auth-Requested header to what we determined above
