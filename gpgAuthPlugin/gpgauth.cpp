@@ -427,41 +427,149 @@ string gpgAuth::gpgDisableKey(string keyid) {
 string gpgAuth::gpgDecrypt(string data){
     gpgme_ctx_t ctx = init();
     gpgme_error_t err;
-    gpgme_decrypt_result_t result;
+    gpgme_decrypt_result_t decrypt_result;
+    gpgme_verify_result_t verify_result;
+    gpgme_signature_t sig;
     gpgme_data_t in, out;
+    string out_buf, retVal;
     char *agent_info;
-
+    int r_stat, nsigs;
+    //time_t *r_created;
+    //int tnsigs = 0;
+    
     agent_info = getenv("GPG_AGENT_INFO");
 
+    retVal = "{ ";
     err = gpgme_data_new_from_mem (&in, data.c_str(), data.length(), 0);
-    if (err != GPG_ERR_NO_ERROR) return "error: Problem creating gpgme input buffer";
+    if (err != GPG_ERR_NO_ERROR) {
+        retVal += "\"error\" : \"Problem creating gpgme input buffer\" }";
+        return retVal;
+    }
 
     err = gpgme_data_new (&out);
-    if (err != GPG_ERR_NO_ERROR) return "error: Unable to allocate result buffer";
-  
-    err = gpgme_op_decrypt (ctx, in, out);
-	string error = "error: Decrypt failed.";
-    if (gpg_err_code(err) == GPG_ERR_BAD_PASSPHRASE) error += " Bad passphrase; ";
-    if (gpg_err_code(err) == GPG_ERR_CANCELED) error += " Passphrase cancelled; ";
-    if (gpg_err_source(err) == GPG_ERR_SOURCE_PINENTRY) error += " Pinentry failed; ";
-    if (gpg_err_source(err) == GPG_ERR_SOURCE_GPGAGENT) error += " GPGAgent error; ";
+    if (err != GPG_ERR_NO_ERROR) {
+        retVal += "\"error\" : \"Unable to allocate result buffer\" }";
+        return retVal;
+    }
 
-    if (err != GPG_ERR_NO_ERROR) return error;
-    result = gpgme_op_decrypt_result (ctx);
+    err = gpgme_op_decrypt_verify (ctx, in, out);
+
+    decrypt_result = gpgme_op_decrypt_result (ctx);
+    verify_result = gpgme_op_verify_result (ctx);
+
+    if (err != GPG_ERR_NO_ERROR) {
+        // There was an error returned while decrypting;
+        //   either bad data, or signed only data
+        if (verify_result->signatures) {
+            if (verify_result->signatures->status != GPG_ERR_NO_ERROR) {
+                retVal += "\"error\" : \"No valid GPG data to decrypt or signatures to verify; possibly bad armor.\" }";
+                return retVal;
+            }
+        }
+        if (gpg_err_code(err) == GPG_ERR_CANCELED) {
+            retVal += "\"error\" : \"Passphrase cancelled\" }";
+            return retVal;
+        }
+        if (gpg_err_code(err) == GPG_ERR_BAD_PASSPHRASE) {
+            retVal += "\"error\" : \"Bad passphrase\" }";
+            return retVal;
+        }
+        if (gpg_err_source(err) == GPG_ERR_SOURCE_PINENTRY) {
+            retVal += "\"error\" : \"Pinentry failed\" }";
+            return retVal;
+        }
+        if (gpg_err_source(err) == GPG_ERR_SOURCE_GPGAGENT) {
+            retVal += "\"error\" : \"GPGAgent error\" }";
+            return retVal;
+        }
+    }
 
     size_t out_size = 0;
-    string out_buf;
     out_buf = gpgme_data_release_and_get_mem (out, &out_size);
     /* strip the size_t data out of the output buffer */
     out_buf = out_buf.substr(0, out_size);
+    retVal += "\"data\" : \"" + out_buf + "\", ";
+    retVal += "\"signatures\" : { ";
     /* set the output object to NULL since it has
         already been released */
     out = NULL;
+    out_buf = "";
 
+    if (verify_result->signatures) {
+        for (nsigs=0, sig=verify_result->signatures; sig; sig = sig->next, nsigs++) {
+            retVal += "\"";
+            retVal += i_to_str(nsigs);
+            retVal += "\" : { \"fingerprint\" : \"";
+            retVal += (char *) sig->fpr;
+            retVal += "\", \"timestamp\" : \"";
+            retVal += i_to_str(sig->timestamp);
+            retVal += "\", \"expiration\" : \"";
+            retVal += i_to_str(sig->exp_timestamp);
+            retVal += "\", \"validity\" : \"";
+            retVal += sig->validity == GPGME_VALIDITY_UNKNOWN? "unknown":
+                  sig->validity == GPGME_VALIDITY_UNDEFINED? "undefined":
+                  sig->validity == GPGME_VALIDITY_NEVER? "never":
+                  sig->validity == GPGME_VALIDITY_MARGINAL? "marginal":
+                  sig->validity == GPGME_VALIDITY_FULL? "full":
+                  sig->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
+            retVal += "\", \"status\" : ";
+//            cout << sig->timestamp << "\n";
+//            cout << gpg_err_code (sig->status) << "\n";
+//            if (gpg_err_code (sig->status) == GPG_ERR_NO_ERROR) {
+//                cout << gpgme_strerror(sig->status) << "\n";
+//            }
+            switch (gpg_err_code (sig->status))
+          	{
+          	case GPG_ERR_NO_ERROR:
+          	  r_stat = GPGME_SIG_STAT_GOOD;
+          	  retVal += "\"GOOD\"";
+          	  break;
+          
+          	case GPG_ERR_BAD_SIGNATURE:
+          	  r_stat = GPGME_SIG_STAT_BAD;
+        	  retVal += "\"BAD\"";
+          	  break;
+          
+          	case GPG_ERR_NO_PUBKEY:
+          	  r_stat = GPGME_SIG_STAT_NOKEY;
+          	  retVal += "\"NO_PUBKEY\"";
+          	  break;
+          
+          	case GPG_ERR_NO_DATA:
+          	  r_stat = GPGME_SIG_STAT_NOSIG;
+          	  retVal += "\"NO_SIGNATURE\"";
+          	  break;
+          
+          	case GPG_ERR_SIG_EXPIRED:
+          	  r_stat = GPGME_SIG_STAT_GOOD_EXP;
+          	  retVal += "\"GOOD_EXPSIG\"";
+          	  break;
+          
+          	case GPG_ERR_KEY_EXPIRED:
+          	  r_stat = GPGME_SIG_STAT_GOOD_EXPKEY;
+          	  retVal += "\"GOOD_EXPKEY\"";
+          	  break;
+          
+          	default:
+          	  r_stat = GPGME_SIG_STAT_ERROR;
+          	  retVal += "\"INVALID\"";
+          	  break;
+          	}
+          	retVal += " }";
+          	if (sig->next)
+          	    retVal += ",";
+          	cout << "sig status: " << r_stat << "\n";
+        }
+        retVal += " }";
+    } else {
+        cout << "Not signed data...\n";
+        retVal += "}";
+    }
+    retVal += " }";
     gpgme_data_release (in);
     gpgme_release (ctx);
 
-    return out_buf;
+    return retVal;
 }
 
 /*
@@ -1081,6 +1189,7 @@ int main(int argc, char **argv)
     char* enc_to_key;
     char* sign_with_key = (char *) "";
     char* data_to_enc = (char *) "";
+    char* data_to_decrypt = (char *) "";
     char* enc_from_key = (char *) "";
     char* key_to_verify = (char *) "";
     char* required_sig_keyid = (char *) "";
@@ -1088,7 +1197,7 @@ int main(int argc, char **argv)
     char* pattern = (char *) "";
     char* key = (char *) "";
     char* sig = (char *) "";
-    while ((c = getopt (argc, argv, ":ihl:v:r:x:d:t:f:s::pg")) != -1)
+    while ((c = getopt (argc, argv, ":ihl:v:r:x:e:d:t:f:s::pg")) != -1)
          switch (c) {
             // Keylist (non-option arg)
             case 'x':
@@ -1121,8 +1230,8 @@ int main(int argc, char **argv)
                 }
                 break;
             // Data to encrypt -d <DATA>
-            case 'd':
-                if (c == 'd') {
+            case 'e':
+                if (c == 'e') {
                     cmd = 2;
                 }
                 if (optarg[0] == '-')
@@ -1142,6 +1251,12 @@ int main(int argc, char **argv)
                 sign_with_key = optarg;
                 break;
             // Verifify -v <KEY UID or ID>
+            case 'd':
+                if (c == 'd') {
+                    cmd = 9;
+                }
+                data_to_decrypt = optarg;
+                break;
             case 'v':
                 if (c == 'v') {
                     cmd = 3;
@@ -1319,6 +1434,8 @@ int main(int argc, char **argv)
 //     	   gpgauth.set_preference("default-key", original_value);
 //	    }
     	//cout << "value for option: " << original_value << "\n";
+    } else if (cmd == 9){
+        retval = gpgauth.gpgDecrypt(data_to_decrypt);
     }
     cout << retval << "\n";
     return 0;

@@ -212,7 +212,7 @@ var gpgauthBackground = {
                 if (token_from_server['valid']){
                     response = {
                         'valid': true,
-                        'decrypted_token': token_from_server['plaintext'],
+                        'decrypted_token': token_from_server['plaintext']['data'],
                         'keyid': token_from_server['keyid'],
                         'validation' : gpgauthBackground.gpg_elements[request.params['domain']]
                     }
@@ -391,17 +391,21 @@ var gpgauthBackground = {
         }
 
         cipher = unescape(server_response).replace(/\\\+/g, ' ').replace(/\\./g, '.');
-        plaintext = plugin.gpgDecrypt(cipher);
+        try {
+            plaintext = JSON.parse(plugin.gpgDecrypt(cipher));
+        } catch(err) {
+            plaintext = {};
+        }
         console.log('plaintext: ', plaintext);
 
         var random_re = new RegExp("^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i");
         // if the response from the server matches both the format and content of the original token, server is validated
-        if (plaintext && random_re.test(plaintext)) {
+        if (plaintext && random_re.test(plaintext['data'])) {
             console.log("token matches gpgAuth format, it is safe to return to the server decrypted");
             return {'valid': true, 'plaintext': plaintext, 'keyid': keyid};
         } else {
             error_re = new RegExp("bad passphrase", "i");
-            if (error_re.test(plaintext)){
+            if (plaintext['error'] && error_re.test(plaintext['error'])){
                 console.log("the passphrase was incorrect or cancelled");
                 errorno = 5;
             } else {
