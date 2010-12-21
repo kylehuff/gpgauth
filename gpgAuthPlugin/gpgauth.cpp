@@ -17,6 +17,10 @@
     \"line\": \"%d\", \n\
     \"file\": \"%s\" \n}"
 
+#ifdef HAVE_W32_SYSTEM
+#define __func__ __FUNCTION__
+#endif
+
 using namespace std;
 
 
