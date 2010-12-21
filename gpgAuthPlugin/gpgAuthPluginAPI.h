@@ -43,7 +43,7 @@ public:
     std::string gpgDecrypt(std::string data);
     std::string gpgSignUID(std::string keyid, long sign_uid,
         std::string with_keyid, long local_only=NULL, long trust_sign=NULL, 
-        std::string trust_sign_level=NULL);
+        long trust_level=NULL);
     std::string gpgDeleteUIDSign(std::string keyid, long sign_uid,
         long signature);
     std::string gpgEnableKey(std::string keyid);
@@ -58,6 +58,7 @@ public:
 
     // Read-only property ${PROPERTY.ident}
     std::string get_version();
+    std::string gpgconf_detected();
 
     // Method echo
     FB::variant echo(const FB::variant& msg);

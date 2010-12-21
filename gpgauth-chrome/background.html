@@ -245,6 +245,7 @@ var gpgauthBackground = {
             response = {};
             response.error = gpgauthBackground.gpg_elements[domain]['error'];
             response.errorno = gpgauthBackground.gpg_elements[domain]['errorno'];
+            response.headers = gpgauthBackground.gpg_elements[domain]['headers'];
         }
         if (request.msg == 'getPopupData'){
             parsed_url = gpgauthBackground.parseUrl(request.tab.url);
@@ -500,9 +501,21 @@ var gpgauthBackground = {
             console.log ("keyresult was " + key_results['domain_key_trust'] );
             var token = this.generate_random_token();
             this.gpg_elements[domain]['token_for_server'] = token;
-            var encrypted_token = plugin.gpgEncrypt(token, key_results['domain_key'], '', '');
+            var enc_result = plugin.gpgEncrypt(token, key_results['domain_key'], '', '');
+            // Attempt to extract the relevant parts returned from gpgEncrypt
+            try {
+                enc_result = JSON.parse(enc_result)
+                if (enc_result['error']) {
+                    console.log("there was a problem", enc_result);
+                }
+            } catch(err) {
+                gpgauthBackground.enc = enc_result;
+                console.log(err, enc_result);
+                if (enc_result.substr(0,5) == "-----")
+                    encrypted_token = enc_result;
+            }
+            this.gpg_elements[domain]['server_validated'] = false;
             var server_response = gpgauthBackground.doServerTokenTests(domain, encrypted_token);
-            this.gpg_elements[domain]['server_validated'] = true;
             return this.gpg_elements[domain];
         }
     },
@@ -524,7 +537,7 @@ var gpgauthBackground = {
         } else {
             server_response = "Status: " + http.status + "<br>Resposne:<br>" + http.responseText;
         }
-        if (this.debug == 2){
+        if (this.debug){
             console.log(http.responseText);
             console.log(server_response);
         }

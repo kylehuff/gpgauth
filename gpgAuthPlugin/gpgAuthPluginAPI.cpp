@@ -26,6 +26,9 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr h
     registerProperty("version",
                      make_property(this,
                         &gpgAuthPluginAPI::get_version));
+    registerProperty("gpgconf_detected",
+                     make_property(this,
+                        &gpgAuthPluginAPI::gpgconf_detected));
 }
 
 gpgAuthPluginAPI::~gpgAuthPluginAPI()
@@ -108,11 +111,11 @@ std::string gpgAuthPluginAPI::gpgDecrypt(std::string data)
 
 std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
     std::string with_keyid, long local_only, long trust_sign, 
-    std::string trust_sign_level)
+    long trust_level)
 {
     gpgAuth gpgauth;
     return gpgauth.gpgSignUID(keyid, sign_uid, with_keyid, local_only, 
-        trust_sign, trust_sign_level);
+        trust_sign, trust_level);
 }
 
 std::string gpgAuthPluginAPI::gpgEnableKey(std::string keyid)
@@ -198,4 +201,11 @@ std::string gpgAuthPluginAPI::gpgImportKey(std::string ascii_key) {
 std::string gpgAuthPluginAPI::get_version()
 {
     return "CURRENT_VERSION";
+}
+
+// Read-only property gpgconf_detected
+string gpgAuthPluginAPI::gpgconf_detected()
+{
+    gpgAuth gpgauth;
+    return gpgauth.gpgconf_detected();
 }

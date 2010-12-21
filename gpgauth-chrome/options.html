@@ -269,10 +269,10 @@ $(function(){
             params = this.id.split('-');
             console.log(params[1], 
                 parseInt(params[2]) + 1,
-                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 'M')
+                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 1)
             sign_result = window.ext.plugin.gpgSignUID(params[1], 
                 parseInt(params[2]) + 1,
-                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 'M');
+                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 1);
             console.log(sign_result);
             buildPublicKeylist(params[1], params[2]);
         });
@@ -483,10 +483,10 @@ $(function(){
             params = this.id.split('-');
             console.log(params[1], 
                 parseInt(params[2]) + 1,
-                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 'M')
+                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 1)
             sign_result = window.ext.plugin.gpgSignUID(params[1], 
                 parseInt(params[2]) + 1,
-                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 'M');
+                window.ext.gpgauth_prefs.default_key.get(), 1, 1, 1);
             console.log(sign_result);
             buildPublicKeylist(params[1], params[2]);
         });

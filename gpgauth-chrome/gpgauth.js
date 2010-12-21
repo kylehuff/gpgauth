@@ -58,7 +58,7 @@ var gpgAuth = {
 
         request.open("HEAD", document.URL, false);
         request.setRequestHeader('X-User-Agent', 'gpgauth-discovery-chrome/1.0.3');
-        request.setRequestHeader("Connection", "close")
+//        request.setRequestHeader("Connection", "close")
         request.send(null);
         /* Make the request */
         response_headers = request.getAllResponseHeaders()

@@ -9,7 +9,62 @@
 #endif
 #endif
 
+#define errstr "{ \n\
+    \"error\": \"true\" \n\
+    \"method\": \"%s\", \n\
+    \"gpg_error_code\" : \"%d\", \n\
+    \"error_string\": \"%s\", \n\
+    \"line\": \"%d\", \n\
+    \"file\": \"%s\" \n}"
+
 using namespace std;
+
+
+std::string
+vformat (const char *fmt, va_list ap)
+{
+    // Allocate a buffer on the stack that's big enough for us almost
+    // all the time.  Be prepared to allocate dynamically if it doesn't fit.
+    size_t size = 1024;
+    char stackbuf[1024];
+    std::vector<char> dynamicbuf;
+    char *buf = &stackbuf[0];
+
+    while (1) {
+        // Try to vsnprintf into our buffer.
+        int needed = vsnprintf (buf, size, fmt, ap);
+        // NB. C99 (which modern Linux and OS X follow) says vsnprintf
+        // failure returns the length it would have needed.  But older
+        // glibc and current Windows return -1 for failure, i.e., not
+        // telling us how much was needed.
+
+        if (needed <= (int)size && needed >= 0) {
+            // It fit fine so we're done.
+            return std::string (buf, (size_t) needed);
+        }
+
+        // vsnprintf reported that it wanted to write more characters
+        // than we allotted.  So try again using a dynamic buffer.  This
+        // doesn't happen very often if we chose our initial size well.
+        size = (needed > 0) ? (needed+1) : (size*2);
+        dynamicbuf.resize (size);
+        buf = &dynamicbuf[0];
+    }
+}
+
+class json_string {
+private:
+  std::string text;
+public:
+    string format(char *fmt, ...) {
+        va_list ap;
+        va_start (ap, fmt);
+        std::string buf = vformat (fmt, ap);
+        va_end (ap);
+        return buf;
+    }
+};
+
 
 /* 
  * Define non-member methods/inlines
@@ -60,6 +115,7 @@ gpgAuth::~gpgAuth(){};
 gpgme_ctx_t gpgAuth::init(){
     gpgme_ctx_t ctx;
     gpgme_error_t err;
+    string cfg_present;
     /* Initialize the locale environment.
      * The function `gpgme_check_version` must be called before any other
      * function in the library, because it initializes the thread support
@@ -71,8 +127,6 @@ gpgme_ctx_t gpgAuth::init(){
         gpgme_set_locale (NULL, LC_MESSAGES, setlocale (LC_MESSAGES, NULL));
     #endif
     err = gpgme_engine_check_version (GPGME_PROTOCOL_OpenPGP);
-    if (err)
-    	cout << "err: " << err;
 
     err = gpgme_new (&ctx);
     gpgme_set_textmode (ctx, 1);
@@ -83,17 +137,36 @@ gpgme_ctx_t gpgAuth::init(){
     return ctx;
 };
 
+string gpgAuth::gpgconf_detected() {
+    gpgme_error_t err;
+    string cfg_present;
+    err = gpgme_engine_check_version (GPGME_PROTOCOL_GPGCONF);
+    if (err != GPG_ERR_NO_ERROR) {
+        cfg_present = "false";
+    } else {
+        cfg_present = "true";
+    }
+
+    return cfg_present;
+}
+
 string gpgAuth::get_preference(string preference) {
     gpgme_ctx_t ctx = init();
     gpgme_error_t err;
     gpgme_conf_comp_t conf, comp;
     gpgme_conf_opt_t opt;
     string return_value;
-    string error = "error: ";
+    json_string error;
+
+    err = gpgme_engine_check_version (GPGME_PROTOCOL_GPGCONF);
+    if (err) {
+        cout << "error: " << gpgme_err_code (err) << "\n";
+        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+    }
 
     err = gpgme_op_conf_load (ctx, &conf);
     if (err)
-        return error.append(gpgme_strerror (err));
+        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     comp = conf;
     while (comp && strcmp (comp->name, "gpg"))
@@ -128,11 +201,11 @@ string gpgAuth::get_preference(string preference) {
 
 string gpgAuth::set_preference(string preference, string pref_value) {
 	gpgme_error_t err;
-	string error = "error: ";
+	json_string error;
 	gpgme_protocol_t proto = GPGME_PROTOCOL_OpenPGP;
     err = gpgme_engine_check_version (proto);
     if (err != GPG_ERR_NO_ERROR)
-        return error.append(gpgme_strerror (err));
+        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     
     gpgme_ctx_t ctx = init();
     gpgme_conf_comp_t conf, comp;
@@ -140,7 +213,7 @@ string gpgAuth::set_preference(string preference, string pref_value) {
     
     err = gpgme_op_conf_load (ctx, &conf);
     if (err != GPG_ERR_NO_ERROR)
-        return error.append(gpgme_strerror (err));
+        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_conf_arg_t original_arg, arg;
     gpgme_conf_opt_t opt;
@@ -148,7 +221,7 @@ string gpgAuth::set_preference(string preference, string pref_value) {
     err = gpgme_conf_arg_new (&arg, GPGME_CONF_STRING, (char *) pref_value.c_str());
     
     if (err != GPG_ERR_NO_ERROR)
-        return error.append(gpgme_strerror (err));
+        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     comp = conf;
     while (comp && strcmp (comp->name, "gpg"))
@@ -188,10 +261,10 @@ string gpgAuth::set_preference(string preference, string pref_value) {
                 err = gpgme_conf_opt_change (opt, 0, NULL);
             else
                 err = gpgme_conf_opt_change (opt, 0, arg);
-            if (err != GPG_ERR_NO_ERROR) return_code = error.append(gpgme_strerror (err));
+            if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
             
             err = gpgme_op_conf_save (ctx, comp);
-            if (err != GPG_ERR_NO_ERROR) return_code = error.append(gpgme_strerror (err));
+            if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }
     }
     
@@ -216,41 +289,42 @@ string gpgAuth::gpgEncrypt(string data, string enc_to_keyid, \
     gpgme_error_t err;
     gpgme_data_t in, out;
     gpgme_key_t key[3] = { NULL, NULL, NULL };
-    gpgme_encrypt_result_t result;
+    gpgme_encrypt_result_t enc_result;
+    json_string error;
 
     err = gpgme_data_new_from_mem (&in, data.c_str(), data.length(), 0);
-    if (err != GPG_ERR_NO_ERROR) return "error: Problem creating gpgme input buffer";
+    if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_set_encoding(in, GPGME_DATA_ENCODING_ARMOR);
-    if(err != GPG_ERR_NO_ERROR) return "error: Unable to set encoding on input data object";
+    if(err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     
     err = gpgme_data_new (&out);
-    if (err != GPG_ERR_NO_ERROR) return "error: Problem creating gpgme output buffer";
+    if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     
     err = gpgme_data_set_encoding(out, GPGME_DATA_ENCODING_ARMOR);
-    if(err != GPG_ERR_NO_ERROR) return "error: Unable to set encoding on output data object";
+    if(err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_get_key (ctx, enc_to_keyid.c_str(),
            &key[0], 0);
-    if(err != GPG_ERR_NO_ERROR) return "error: unable to get key 1";
+    if(err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     if (enc_from_keyid.length()) {
         err = gpgme_get_key (ctx, enc_from_keyid.c_str(),
                &key[1], 0);
-        if (err != GPG_ERR_NO_ERROR) return "error: unable to get key 2";
+        if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     }
 
     err = gpgme_op_encrypt (ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
-    if (err != GPG_ERR_NO_ERROR) return "error: Encrypt failed.";
+    if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     gpgme_data_seek(in, 0, SEEK_SET);
-    result = gpgme_op_encrypt_result (ctx);
-    if (result->invalid_recipients)
+    enc_result = gpgme_op_encrypt_result (ctx);
+    if (enc_result->invalid_recipients)
     {
 #ifdef DEBUG
       fprintf (stderr, "Invalid recipient encountered: %s\n",
-           result->invalid_recipients->fpr);
+           enc_result->invalid_recipients->fpr);
 #endif
-      if(err != GPG_ERR_NO_ERROR) return "error: Invalid recipient(s)";
+      return error.format((char *) errstr, __func__, -1, "Invalid recipient", __LINE__, __FILE__);
     }
 
     
@@ -273,45 +347,58 @@ string gpgAuth::gpgEncrypt(string data, string enc_to_keyid, \
         gpgme_data_release (in);
     if (out)
         gpgme_data_release (out);
-    
+
     return out_buf;
 }
 
 
 string gpgAuth::gpgSignUID(string keyid, int sign_uid, string with_keyid,
-        bool local_only, bool trust_sign, string trust_sign_level){
+        bool local_only, bool trust_sign, int trust_level){
     gpgme_ctx_t ctx = init();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    string result = "signed: ";
+    json_string success_msg;
+    string result = success_msg.format((char *) "{ \n\
+    \"error\": \"false\",\n\
+    \"result\": \"Signed UID %d of Public Key %s with Key %s\"\n }", sign_uid, keyid.c_str(), with_keyid.c_str());
     current_uid = i_to_str(sign_uid);
-    result += i_to_str(sign_uid);
-    string errr;
+    json_string error;
 
-    /* set the default key to the with_keyid */
+    /* set the default key to the with_keyid 
+        set_preferences returns the orginal value (if any) of
+        the 'default-key' configuration parameter. We will put
+        this into a variable so we can restore the setting when
+        our UID Signing operation is complete (or failed)
+    */
     string original_value = gpgAuth::set_preference("default-key", (char *) with_keyid.c_str());
 
     gpgme_release (ctx);
     ctx = init();
-
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        errr = string("error with keylist start; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        errr = string("error with keylist next; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        errr = string("error with keylist end; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        errr = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
-    
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_edit (ctx, key, edit_fnc_sign, out, out);
-    if (err != GPG_ERR_NO_ERROR)
-        errr = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
+    if (err != GPG_ERR_NO_ERROR) {
+        if (err == GPGME_STATUS_ALREADY_SIGNED) {
+            result = error.format((char *) errstr, __func__, err, "The selected UID has already been signed with this key.", __LINE__, __FILE__);
+        } else {
+            result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        }
+    }
 
     /* if the original value is not the new value, reset it to the previous value */
     if (strcmp ((char *) original_value.c_str(), "0")) {
@@ -330,28 +417,29 @@ string gpgAuth::gpgDeleteUIDSign(string keyid, int uid, int signature){
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    string result = "signature deleted";
+    string result = "{ \"error\": \"false\", \"result\": \"Signature deleted\" }";
+    json_string error;
 
     current_uid = i_to_str(uid);
     current_sig = i_to_str(signature);
 
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist start").append(gpgme_strerror (err));;
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist next").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist end; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     
     err = gpgme_op_edit (ctx, key, edit_fnc_delsign, out, out);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     current_uid = "0";
     current_sig = "0";
@@ -367,25 +455,26 @@ string gpgAuth::gpgEnableKey(string keyid) {
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    string result = "key '" + keyid + "' enabled";
+    string result = "{ \"error\": \"false\", \"result\": \"Key enabled\" }";
+    json_string error;
 
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist start").append(gpgme_strerror (err));;
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist next").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist end; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     
     err = gpgme_op_edit (ctx, key, edit_fnc_enable, out, out);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_data_release (out);
     gpgme_key_unref (key);
@@ -398,25 +487,26 @@ string gpgAuth::gpgDisableKey(string keyid) {
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    string result = "key '" + keyid + "' disabled";
+    string result = "{ \"error\": \"false\", \"result\": \"Key disabled\" }";
+    json_string error;
 
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist start").append(gpgme_strerror (err));;
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist next").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with keylist end; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with gpgme_data_new; ").append(gpgme_strerror (err));
-    
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_edit (ctx, key, edit_fnc_disable, out, out);
     if (err != GPG_ERR_NO_ERROR)
-        result = string("error with gpgme_op_edit; ").append(gpgme_strerror (err));
+        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_data_release (out);
     gpgme_key_unref (key);
@@ -434,9 +524,7 @@ string gpgAuth::gpgDecrypt(string data){
     string out_buf, retVal;
     char *agent_info;
     int r_stat, nsigs;
-    //time_t *r_created;
-    //int tnsigs = 0;
-    
+
     agent_info = getenv("GPG_AGENT_INFO");
 
     retVal = "{ ";
@@ -513,43 +601,38 @@ string gpgAuth::gpgDecrypt(string data){
                   sig->validity == GPGME_VALIDITY_FULL? "full":
                   sig->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
             retVal += "\", \"status\" : ";
-//            cout << sig->timestamp << "\n";
-//            cout << gpg_err_code (sig->status) << "\n";
-//            if (gpg_err_code (sig->status) == GPG_ERR_NO_ERROR) {
-//                cout << gpgme_strerror(sig->status) << "\n";
-//            }
             switch (gpg_err_code (sig->status))
           	{
           	case GPG_ERR_NO_ERROR:
           	  r_stat = GPGME_SIG_STAT_GOOD;
           	  retVal += "\"GOOD\"";
           	  break;
-          
+
           	case GPG_ERR_BAD_SIGNATURE:
           	  r_stat = GPGME_SIG_STAT_BAD;
         	  retVal += "\"BAD\"";
           	  break;
-          
+
           	case GPG_ERR_NO_PUBKEY:
           	  r_stat = GPGME_SIG_STAT_NOKEY;
           	  retVal += "\"NO_PUBKEY\"";
           	  break;
-          
+
           	case GPG_ERR_NO_DATA:
           	  r_stat = GPGME_SIG_STAT_NOSIG;
           	  retVal += "\"NO_SIGNATURE\"";
           	  break;
-          
+
           	case GPG_ERR_SIG_EXPIRED:
           	  r_stat = GPGME_SIG_STAT_GOOD_EXP;
           	  retVal += "\"GOOD_EXPSIG\"";
           	  break;
-          
+
           	case GPG_ERR_KEY_EXPIRED:
           	  r_stat = GPGME_SIG_STAT_GOOD_EXPKEY;
           	  retVal += "\"GOOD_EXPKEY\"";
           	  break;
-          
+
           	default:
           	  r_stat = GPGME_SIG_STAT_ERROR;
           	  retVal += "\"INVALID\"";
@@ -1187,12 +1270,18 @@ int main(int argc, char **argv)
     int cmd = 0;
     int secret_only = 0;
     char* enc_to_key;
-    char* sign_with_key = (char *) "";
+//    char* sign_with_key = (char *) "";
     char* data_to_enc = (char *) "";
     char* data_to_decrypt = (char *) "";
     char* enc_from_key = (char *) "";
     char* key_to_verify = (char *) "";
     char* required_sig_keyid = (char *) "";
+    char* key_to_sign = (char *) "";
+    int uid_to_sign;
+    char* sign_with_key = (char *) "";
+    int local_only; // bool
+    int trust_sign; // bool
+    int trust_level; // 1 = Marginal, 2 = Full
     int uid_idx = -1;
     char* pattern = (char *) "";
     char* key = (char *) "";
@@ -1246,9 +1335,15 @@ int main(int argc, char **argv)
             case 't':
                 enc_to_key = optarg;
                 break;
-            //Sign -s <KEY UID or ID>
+            // Sign -s <KEY UID> <UID TO SIGN> <SIGNING KEY ID> <LOCAL> <TRUST SIGN> <TRUST LEVEL>
             case 's':
-                sign_with_key = optarg;
+                key_to_sign = argv[2];
+                uid_to_sign = atoi(argv[3]);
+                sign_with_key = argv[4];
+                local_only = atoi(argv[5]); // bool
+                trust_sign = atoi(argv[6]); // bool
+                trust_level = atoi(argv[7]); // M = Marginal, F = Full
+                cmd = 10;
                 break;
             // Verifify -v <KEY UID or ID>
             case 'd':
@@ -1426,7 +1521,6 @@ int main(int argc, char **argv)
 			text += "-----END PGP PUBLIC KEY BLOCK-----";
     	string x = gpgauth.gpgImportKey(text);
     	cout << x << "\n";
-    	string y = gpgauth.get_preference("use-agent");
 //    	string with_keyid = "E74EB6F3";
 //    	string original_value = gpgauth.set_preference("default-key", (char *) with_keyid.c_str());
 //	    if (strcmp ((char *) original_value.c_str(), "0")) {
@@ -1436,6 +1530,13 @@ int main(int argc, char **argv)
     	//cout << "value for option: " << original_value << "\n";
     } else if (cmd == 9){
         retval = gpgauth.gpgDecrypt(data_to_decrypt);
+    } else if (cmd == 10) {
+        cout << "signing keyid: " << key_to_sign << ", UID #" << uid_to_sign << " with keyid: " \
+            << sign_with_key << " " << local_only << " " << trust_sign << " " << trust_level << "\n";
+        retval = gpgauth.gpgSignUID(key_to_sign, uid_to_sign, sign_with_key, local_only, 1, trust_level);
+        cout << gpgauth.gpgconf_detected << "\n";
+        string y = gpgauth.get_preference("use-agent");
+        cout << y << "\n";
     }
     cout << retval << "\n";
     return 0;

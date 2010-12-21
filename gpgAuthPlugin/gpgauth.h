@@ -4,6 +4,8 @@
 #include <sstream>
 #include <iostream>
 #include <string.h>
+#include <stdarg.h>
+#include <vector>
 
 #include <gpgme.h>
 
@@ -38,7 +40,7 @@ class gpgAuth {
             string enc_from_keyid=NULL, string sign=NULL);
         std::string gpgDecrypt(string data);
         std::string gpgSignUID(string keyid, int sign_uid, string with_keyid, 
-            bool local_only=1, bool trust_sign=1, string trust_sign_level="M");
+            bool local_only=1, bool trust_sign=1, int trust_level=1);
         std::string gpgDeleteUIDSign(string keyid, int uid, int signature);
         std::string gpgEnableKey(string keyid);
         std::string gpgDisableKey(string keyid);
@@ -53,5 +55,6 @@ class gpgAuth {
                                             )
         );
         std::string gpgImportKey(string ascii_key);
+        std::string gpgconf_detected();
     private:
 };

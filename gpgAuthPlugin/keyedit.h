@@ -17,8 +17,15 @@ static int signature_iter = 1;
 gpgme_error_t
 edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int fd)
 {
-    /* this is for signing */
+    /* this is stores the response to a questions that arise during
+        the edit loop - it is what the user would normally type while
+        using `gpg --edit-key`. To test the prompts and their output,
+        you can execute GnuPG this way:
+            gpg --command-fd 0 --status-fd 2 --edit-key <KEY ID>
+     */
     char *response = NULL;
+    int error = GPG_ERR_NO_ERROR;
+    static string prior_response = "";
 
 #ifdef DEBUG
     fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
@@ -42,6 +49,8 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
                     break;
 
                 default:
+                    if (step == 3 && prior_response == "tlsign")
+                        error = GPGME_STATUS_ALREADY_SIGNED; // Already signed with this key..
                     step = 0;
                     response = (char *) "quit";
                     break;
@@ -58,11 +67,17 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
             response = (char *) "";
         else if (!strcmp (args, "sign_uid.okay"))
             response = (char *) "y";
-        else if (!strcmp (args, "passphrase.enter"))
+        else if (!strcmp (args, "passphrase.enter")) {
             response = (char *) "";
+            error = GPG_ERR_BAD_PASSPHRASE;
+        }
     }
 
     if (response) {
+#ifdef DEBUG
+        fprintf (stdout, "[-- Sending Response: %s --]\n", response);
+#endif
+        prior_response = response;
 #ifdef HAVE_W32_SYSTEM
         DWORD written;
         WriteFile ((HANDLE) fd, response, strlen (response), &written, 0);
@@ -73,7 +88,7 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
 #endif
     }
     args = "";
-    return 0;
+    return error;
 }
 
 
@@ -136,6 +151,9 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
     }
 
     if (response) {
+#ifdef DEBUG
+        fprintf (stdout, "[-- Sending Response: %s --]\n", response);
+#endif
 #ifdef HAVE_W32_SYSTEM
         DWORD written;
         WriteFile ((HANDLE) fd, response, strlen (response), &written, 0);
