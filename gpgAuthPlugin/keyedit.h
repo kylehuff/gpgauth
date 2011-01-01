@@ -25,7 +25,7 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
      */
     char *response = NULL;
     int error = GPG_ERR_NO_ERROR;
-    static string prior_response = "";
+    static std::string prior_response = "";
 
 #ifdef DEBUG
     fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);

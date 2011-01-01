@@ -430,7 +430,7 @@ var gpgauthBackground = {
             private_keylist = {};
         }
 
-        var keylist = JSON.parse(plugin.getKeyList());
+        var keylist = JSON.parse(plugin.getPublicKeyList("", 0));
         if (!keylist) {
             keylist = {};
         }

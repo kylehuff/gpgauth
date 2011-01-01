@@ -20,7 +20,7 @@ $(function(){
             pkeylist = {};
         }
 
-        var keylist = JSON.parse(window.ext.plugin.getKeyList());
+        var keylist = JSON.parse(window.ext.plugin.getPublicKeyList("", 0));
         if (!keylist) {
             // if the parsing failed, create an empty keylist
             keylist = {};
@@ -352,7 +352,7 @@ $(function(){
             pkeylist = {};
         }
 
-        var keylist = JSON.parse(window.ext.plugin.getKeyList());
+        var keylist = JSON.parse(window.ext.plugin.getPublicKeyList("", 0));
         if (!keylist) {
             // if the parsing failed, create an empty keylist
             keylist = {};
@@ -576,7 +576,7 @@ $(function(){
             // if the parsing failed, create an empty keylist
             pkeylist = {};
         }
-        var keylist = JSON.parse(window.ext.plugin.getKeyList());
+        var keylist = JSON.parse(window.ext.plugin.getPublicKeyList("", 0));
         if (!keylist) {
             // if the parsing failed, create an empty keylist
             keylist = {};

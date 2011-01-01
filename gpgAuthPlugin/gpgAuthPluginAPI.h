@@ -1,10 +1,11 @@
 #include <string>
-#include <sstream>
+#include <stdarg.h>
 #include <boost/weak_ptr.hpp>
 #include "JSAPIAuto.h"
 #include "BrowserHost.h"
-#include "gpgauth.h"
 #include "gpgAuthPlugin.h"
+
+#include <gpgme.h>
 
 #ifndef H_gpgAuthPluginAPI
 #define H_gpgAuthPluginAPI
@@ -29,19 +30,26 @@ public:
     
     gpgAuthPluginPtr getPlugin();
 
-    // Read/Write property ${PROPERTY.ident}
+    gpgme_ctx_t init();
+    int is_initted;
+    std::string _gpgme_version;
     std::string get_testString();
     void set_testString(const std::string& val);
 
-    std::string getKeyList();
+    std::string getKeyList(const std::string& domain, int secret_only);
+    std::string getPublicKeyList();
     std::string getPrivateKeyList();
-    std::string getDomainKey(std::string domain);
+    std::string getDomainKey(const std::string& domain);
     int verifyDomainKey(std::string domain, std::string domain_key_fpr, 
         long uid_idx, std::string required_sig_keyid);
+
+    std::string get_preference(std::string preference);
+    std::string set_preference(std::string preference, std::string pref_value);
+
     std::string gpgEncrypt(std::string data, std::string enc_to_keyid, 
         std::string enc_from_keyid=NULL, std::string sign=NULL);
     std::string gpgDecrypt(std::string data);
-    std::string gpgSignUID(std::string keyid, long sign_uid,
+    std::string gpgSignUID(std::string keyid, long uid,
         std::string with_keyid, long local_only=NULL, long trust_sign=NULL, 
         long trust_level=NULL);
     std::string gpgDeleteUIDSign(std::string keyid, long sign_uid,
@@ -56,16 +64,23 @@ public:
     void threaded_gpgGenKey(genKeyParams params);
     std::string gpgImportKey(std::string ascii_key);
 
-    // Read-only property ${PROPERTY.ident}
     std::string get_version();
     std::string gpgconf_detected();
-
-    // Method echo
-    FB::variant echo(const FB::variant& msg);
 
     static void progress_cb(
         void *self, const char *what,
         int type, int current, int total
+    );
+
+    std::string gpgGenKeyWorker(std::string key_type, std::string key_length, 
+        std::string subkey_type, std::string subkey_length, std::string name_real,
+        std::string name_comment, std::string name_email, std::string expire_date,
+        std::string passphrase, void* APIObj, void(*cb_status)(void *self,
+                                            const char *what,
+                                            int type,
+                                            int current,
+                                            int total
+                                        )
     );
 
     /*
