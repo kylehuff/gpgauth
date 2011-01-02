@@ -108,7 +108,7 @@ body {
                             response.result.msg;
                     } else {
                         document.getElementById('description').innerHTML = "Unable to retrieve the or import the public key.<br/\><br/\>";
-                        document.getElementById('description').innerHTML += response.result.msg;
+                        document.getElementById('description').innerHTML += response.result.msg.error;
                     }
                 }
             );

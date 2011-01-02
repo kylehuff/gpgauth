@@ -101,7 +101,7 @@ void sanitize (std::string& str)
 
 gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr host) : m_plugin(plugin), m_host(host)
 {
-    registerMethod("getPublicKeyList", make_method(this, &gpgAuthPluginAPI::getKeyList));
+    registerMethod("getPublicKeyList", make_method(this, &gpgAuthPluginAPI::getPublicKeyList));
     registerMethod("getPrivateKeyList", make_method(this, &gpgAuthPluginAPI::getPrivateKeyList));
     registerMethod("getDomainKey", make_method(this, &gpgAuthPluginAPI::getDomainKey));
     registerMethod("verifyDomainKey", make_method(this, &gpgAuthPluginAPI::verifyDomainKey));
@@ -121,9 +121,17 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr h
     registerProperty("version",
                      make_property(this,
                         &gpgAuthPluginAPI::get_version));
+
+    registerProperty("_gpgme_version",
+                    make_property(this,
+                        &gpgAuthPluginAPI::get_gpgme_version));
+
     registerProperty("gpgconf_detected",
                      make_property(this,
                         &gpgAuthPluginAPI::gpgconf_detected));
+
+    int inited = gpgAuthPluginAPI::init();
+
 }
 
 gpgAuthPluginAPI::~gpgAuthPluginAPI()
@@ -139,10 +147,10 @@ gpgAuthPluginPtr gpgAuthPluginAPI::getPlugin()
     return plugin;
 }
 
-gpgme_ctx_t gpgAuthPluginAPI::init(){
+int gpgAuthPluginAPI::init(){
     gpgme_ctx_t ctx;
     gpgme_error_t err;
-    std::string cfg_present;
+
     /* Initialize the locale environment.
      * The function `gpgme_check_version` must be called before any other
      * function in the library, because it initializes the thread support
@@ -154,39 +162,60 @@ gpgme_ctx_t gpgAuthPluginAPI::init(){
         gpgme_set_locale (NULL, LC_MESSAGES, setlocale (LC_MESSAGES, NULL));
     #endif
     err = gpgme_engine_check_version (GPGME_PROTOCOL_OpenPGP);
+    if (err != GPG_ERR_NO_ERROR)
+        return -1;
+
+    err = gpgme_new (&ctx);
+    if (err != GPG_ERR_NO_ERROR)
+        return -1;
+    
+    if (ctx)
+        gpgme_release (ctx);
+
+    return 1;
+};
+
+gpgme_ctx_t gpgAuthPluginAPI::get_gpgme_ctx(){
+    gpgme_ctx_t ctx;
+    gpgme_error_t err;
+
+    setlocale (LC_ALL, "");
+    gpgme_set_locale (NULL, LC_CTYPE, setlocale (LC_CTYPE, NULL));
+    #ifdef LC_MESSAGES
+        gpgme_set_locale (NULL, LC_MESSAGES, setlocale (LC_MESSAGES, NULL));
+    #endif
 
     err = gpgme_new (&ctx);
     gpgme_set_textmode (ctx, 1);
     gpgme_set_armor (ctx, 1);
 
-    gpgAuthPluginAPI::is_initted = 1;
-
     return ctx;
-};
+}
 
+std::string gpgAuthPluginAPI::get_gpgme_version(){
+    return gpgAuthPluginAPI::_gpgme_version;
+}
 
 /*
     This method executes gpgauth.getKeyList with an empty string which
         returns all keys in the keyring.
 */
-std::string gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_only){
+FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_only){
     /* declare variables */
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_key_t key;
     gpgme_keylist_result_t result;
     gpgme_user_id_t uid;
     gpgme_key_sig_t sig;
     gpgme_subkey_t subkey;
+    FB::VariantMap keylist_map;
 
-    /* initiate a new instance (context) of gpgme and
-        assign it to ctx, catch any gpgme_error */
-    //gpgme_error_t err = gpgme_new (&ctx);
-    //if(err != GPG_ERR_NO_ERROR) return "error: 1; Unable to init new gpgme context";
+    FB::VariantMap uid_map;
 
     /* set protocol to use in our context */
     err = gpgme_set_protocol(ctx, GPGME_PROTOCOL_OpenPGP);
-    if(err != GPG_ERR_NO_ERROR) return "error: 2; Problem with protocol type";
+    if(err != GPG_ERR_NO_ERROR) return keylist_map["error"] = "error: 2; Problem with protocol type";
 
     /* apply the keylist mode to the context and set
         the keylist_mode 
@@ -202,7 +231,7 @@ std::string gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
     } else { // list all keys
         err = gpgme_op_keylist_ext_start (ctx, NULL, secret_only, 0);
     }
-    if(err != GPG_ERR_NO_ERROR) return "error: 3; Problem with keylist_start";
+    if(err != GPG_ERR_NO_ERROR) return keylist_map["error"] = "error: 3; Problem with keylist_start";
 
     std::string retVal = "{";
     while (!(err = gpgme_op_keylist_next (ctx, &key)))
@@ -214,185 +243,95 @@ std::string gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
         int nsigs;
         int nsubs;
         int tnsigs;
+        FB::VariantMap key_map;
 
         /* iterate through the keys/subkeys and add them to the std::string retVal
             - the retVal string will be parsed as JSON data in the extension */
-        if (key->subkeys && key->subkeys->keyid)
-            retVal += "\n\"";
-            retVal += key->subkeys->keyid;
-            retVal += "\":{\n\t";
         if (key->uids && key->uids->name)
-            retVal += "\"name\": \"";
-            std::string name_str = nonnull (key->uids->name);
-            sanitize (name_str);
-            retVal += name_str;
-            retVal += "\",\n\t";
+            key_map["name"] = nonnull (key->uids->name);
         if (key->subkeys && key->subkeys->fpr)
-            retVal += "\"fingerprint\": \"";
-            retVal += (char *) key->subkeys->fpr;
-            retVal += "\",\n\t";
+            key_map["fingerprint"] = nonnull (key->subkeys->fpr);
         if (key->uids && key->uids->email)
-            retVal += "\"email\": \"";
-            std::string email_str = nonnull (key->uids->email);
-            sanitize (email_str);
-            retVal += email_str;
-            retVal += "\",\n\t";
-        retVal += "\"expired\": \"";
-        retVal += key->expired? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"revoked\": \"";
-        retVal += key->revoked? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"disabled\": \"";
-        retVal += key->disabled? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"invalid\": \"";
-        retVal += key->invalid? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"secret\": \"";
-        retVal += key->secret? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"protocol\": \"";
-        retVal += key->protocol == GPGME_PROTOCOL_OpenPGP? "OpenPGP":
-                  key->protocol == GPGME_PROTOCOL_CMS? "CMS":
-                  key->protocol == GPGME_PROTOCOL_UNKNOWN? "Unknown": "[?]";
-        retVal += "\",\n\t";
-        retVal += "\"can_encrypt\": \"";
-        retVal += key->can_encrypt? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"can_sign\": \"";
-        retVal += key->can_sign? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"can_certify\": \"";
-        retVal += key->can_certify? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"can_authenticate\": \"";
-        retVal += key->can_authenticate? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"is_qualified\": \"";
-        retVal += key->is_qualified? "1":"0";
-        retVal += "\",\n\t";
-        retVal += "\"subkeys\": [ ";
+            key_map["email"] = nonnull (key->uids->email);
+        key_map["expired"] = key->expired? 1:0;
+        key_map["revoked"] = key->revoked? 1:0;
+        key_map["disabled"] = key->disabled? 1:0;
+        key_map["invalid"] = key->invalid? 1:0;
+        key_map["secret"] = key->secret? 1:0;
+        key_map["protocol"] = key->protocol == GPGME_PROTOCOL_OpenPGP? "OpenPGP":
+            key->protocol == GPGME_PROTOCOL_CMS? "CMS":
+            key->protocol == GPGME_PROTOCOL_UNKNOWN? "Unknown": "[?]";
+        key_map["can_encrypt"] = key->can_encrypt? 1:0;
+        key_map["can_sign"] = key->can_sign? 1:0;
+        key_map["can_certify"] = key->can_certify? 1:0;
+        key_map["can_authenticate"] = key->can_authenticate? 1:0;
+        key_map["is_qualified"] = key->is_qualified? 1:0;
+
+        FB::VariantMap subkeys_map;
         for (nsubs=0, subkey=key->subkeys; subkey; subkey = subkey->next, nsubs++) {
-            retVal += "{ \"subkey\": \"";
-            retVal += nonnull (subkey->fpr);
-            retVal += "\",\n\t\t";
-            retVal += "\"expired\": \"";
-            retVal += subkey->expired? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"revoked\": \"";
-            retVal += subkey->revoked? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"disabled\": \"";
-            retVal += subkey->disabled? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"invalid\": \"";
-            retVal += subkey->invalid? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"secret\": \"";
-            retVal += subkey->secret? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"can_encrypt\": \"";
-            retVal += subkey->can_encrypt? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"can_sign\": \"";
-            retVal += subkey->can_sign? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"can_certify\": \"";
-            retVal += subkey->can_certify? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"can_authenticate\": \"";
-            retVal += subkey->can_authenticate? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"is_qualified\": \"";
-            retVal += subkey->is_qualified? "1":"0";     
-            retVal += "\",\n\t\t";
-            retVal += "\"size\": \"";
-            retVal += i_to_str (subkey->length);
-            retVal += "\",\n\t\t";
-            retVal += "\"created\": \"";
-            retVal += i_to_str(subkey->timestamp);
-            retVal += "\",\n\t\t";
-            retVal += "\"expires\": \"";
-            retVal += i_to_str(subkey->expires);
-            retVal += "\" }";
-            if (subkey->next) {
-                retVal += ",\n\t\t";
-            }
+            FB::VariantMap subkey_item_map;
+            subkey_item_map["subkey"] = nonnull (subkey->fpr);
+            subkey_item_map["expired"] = subkey->expired? 1:0;
+            subkey_item_map["revoked"] = subkey->revoked? 1:0;
+            subkey_item_map["disabled"] = subkey->disabled? 1:0;
+            subkey_item_map["invalid"] = subkey->invalid? 1:0;
+            subkey_item_map["secret"] = subkey->secret? 1:0;
+            subkey_item_map["can_encrypt"] = subkey->can_encrypt? 1:0;
+            subkey_item_map["can_sign"] = subkey->can_sign? 1:0;
+            subkey_item_map["can_certify"] = subkey->can_certify? 1:0;
+            subkey_item_map["can_authenticate"] = subkey->can_authenticate? 1:0;
+            subkey_item_map["is_qualified"] = subkey->is_qualified? 1:0;
+            subkey_item_map["size"] = subkey->length;
+            subkey_item_map["created"] = subkey->timestamp;
+            subkey_item_map["expires"] = subkey->expires;
+            subkeys_map[i_to_str(nsubs)] = subkey_item_map;
         }
-        retVal += " ],\n\t";
-        retVal += "\"uids\": [ ";
+
+        key_map["subkeys"] = subkeys_map;
+
+        FB::VariantMap uids_map;
         for (nuids=0, uid=key->uids; uid; uid = uid->next, nuids++) {
-            retVal += "{ \"uid\": \"";
-            std::string name_str = nonnull (uid->name);
-            sanitize (name_str);
-            retVal += name_str;
-            retVal += "\",\n\t\t";
-            retVal += "\"email\": \"";
-            std::string email_str = nonnull (uid->email);
-            sanitize (email_str);
-            retVal += email_str; 
-            retVal += "\",\n\t\t";
-            retVal += "\"comment\": \"";
-            std::string comment_str = nonnull (uid->comment);
-            sanitize (comment_str);
-            retVal += comment_str;
-            retVal += "\",\n\t\t";
-            retVal += "\"invalid\": \"";
-            retVal += uid->invalid? "1":"0";
-            retVal += "\",\n\t\t";
-            retVal += "\"revoked\": \"";
-            retVal += i_to_str(uid->revoked);
-            retVal += "\",\n\t\t";
-            retVal += "\"signatures_count\": \"";
+            FB::VariantMap uid_item_map;
+            uid_item_map["uid"] = nonnull (uid->name);
+            uid_item_map["email"] = nonnull (uid->email);
+            uid_item_map["comment"] = nonnull (uid->comment);
+            uid_item_map["invalid"] = uid->invalid? 1:0;
+            uid_item_map["revoked"] = uid->revoked? 1:0;
             tnsigs = 0;
             for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
                 tnsigs += 1;
             }
-            retVal += i_to_str(nsigs);
-            retVal += "\",\n\t\t";
-            retVal += "\"signatures\": [ ";
+            uid_item_map["signatures_count"] = tnsigs;
+
+            FB::VariantMap signatures_map;
+
             for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
-                retVal += "\"";
-                retVal += nonnull (sig->keyid);
-                if (tnsigs > 1 && nsigs < tnsigs - 1) {
-                    retVal += "\", ";
-                } else {
-                    retVal += "\" ";
-                }
+                signatures_map[i_to_str(nsigs)] = nonnull (sig->keyid);
             }
-            retVal += "],\n\t\t";
-            retVal += "\"validity\": \"";
-            retVal += uid->validity == GPGME_VALIDITY_UNKNOWN? "unknown":
-                  uid->validity == GPGME_VALIDITY_UNDEFINED? "undefined":
-                  uid->validity == GPGME_VALIDITY_NEVER? "never":
-                  uid->validity == GPGME_VALIDITY_MARGINAL? "marginal":
-                  uid->validity == GPGME_VALIDITY_FULL? "full":
-                  uid->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
-            retVal += "\" }";
-            if (uid->next) {
-                retVal += ",\n\t\t";
-            }
+            uid_item_map["signatures"] = signatures_map;
+            uid_item_map["validity"] = uid->validity == GPGME_VALIDITY_UNKNOWN? "unknown":
+                uid->validity == GPGME_VALIDITY_UNDEFINED? "undefined":
+                uid->validity == GPGME_VALIDITY_NEVER? "never":
+                uid->validity == GPGME_VALIDITY_MARGINAL? "marginal":
+                uid->validity == GPGME_VALIDITY_FULL? "full":
+                uid->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
+            uids_map[i_to_str(nuids)] = uid_item_map;
         }
-        retVal += " ]\n\t";
+        key_map["uids"] = uids_map;
+        keylist_map[key->subkeys->keyid] = key_map;
         gpgme_key_unref (key);
-        retVal += "},";
     }
-    /* the last key cannot have a trailing comma for compliant 
-        JSON, so strip it off before adding the final curly-bracket */
-    if (gpg_err_code (err) == GPG_ERR_EOF && retVal.length() > 2)
-        retVal = retVal.substr (0, retVal.length() - 1);
-    retVal += "\n}";
+
     if (gpg_err_code (err) != GPG_ERR_EOF) exit(6);
     err = gpgme_op_keylist_end (ctx);
     if(err != GPG_ERR_NO_ERROR) exit(7);
     result = gpgme_op_keylist_result (ctx);
     if (result->truncated)
      {
-        return "error: 4; Key listing unexpectedly truncated";
+        return keylist_map["error"] = "error: 4; Key listing unexpectedly truncated";
      }
     gpgme_release (ctx);
-    return retVal;
+    return keylist_map;
 }
 
 /*
@@ -400,7 +339,7 @@ std::string gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
         secret_only=0 which returns all Public Keys in the keyring.
 */
 
-std::string gpgAuthPluginAPI::getPublicKeyList(){
+FB::variant gpgAuthPluginAPI::getPublicKeyList(){
     return gpgAuthPluginAPI::getKeyList("", 0);
 }
 
@@ -410,7 +349,7 @@ std::string gpgAuthPluginAPI::getPublicKeyList(){
         the user has the corrisponding secret key.
 */
 
-std::string gpgAuthPluginAPI::getPrivateKeyList(){
+FB::variant gpgAuthPluginAPI::getPrivateKeyList(){
     return gpgAuthPluginAPI::getKeyList("", 1);
 }
 
@@ -418,7 +357,7 @@ std::string gpgAuthPluginAPI::getPrivateKeyList(){
     This method just calls gpgauth.getKeyList with a domain name
         as the parameter
 */
-std::string gpgAuthPluginAPI::getDomainKey(const std::string &domain){
+FB::variant gpgAuthPluginAPI::getDomainKey(const std::string &domain){
     return gpgAuthPluginAPI::getKeyList(domain, 0);
 }
 
@@ -469,7 +408,7 @@ int gpgAuthPluginAPI::verifyDomainKey(std::string domain,
     int nuids;
     int nsigs;
     int domain_key_valid = -1;
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_key_t domain_key, user_key, secret_key, key;
     gpgme_user_id_t uid;
     gpgme_key_sig_t sig;
@@ -623,7 +562,7 @@ std::string gpgAuthPluginAPI::gpgconf_detected() {
 }
 
 std::string gpgAuthPluginAPI::get_preference(std::string preference) {
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_conf_comp_t conf, comp;
     gpgme_conf_opt_t opt;
@@ -677,20 +616,20 @@ std::string gpgAuthPluginAPI::set_preference(std::string preference, std::string
     err = gpgme_engine_check_version (proto);
     if (err != GPG_ERR_NO_ERROR)
         return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
-    
-    gpgme_ctx_t ctx = init();
+
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_conf_comp_t conf, comp;
     std::string return_code;
-    
+
     err = gpgme_op_conf_load (ctx, &conf);
     if (err != GPG_ERR_NO_ERROR)
         return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_conf_arg_t original_arg, arg;
     gpgme_conf_opt_t opt;
-    
+
     err = gpgme_conf_arg_new (&arg, GPGME_CONF_STRING, (char *) pref_value.c_str());
-    
+
     if (err != GPG_ERR_NO_ERROR)
         return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
@@ -703,7 +642,7 @@ std::string gpgAuthPluginAPI::set_preference(std::string preference, std::string
         while (opt && strcmp (opt->name, (char *) preference.c_str())){
             opt = opt->next;
         }
-        
+
         if (opt->value) {
             original_arg = opt->value;
         } else {
@@ -764,7 +703,7 @@ std::string gpgAuthPluginAPI::gpgEncrypt(std::string data,
         std::string sign)
 {
     /* declare variables */
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t in, out;
     gpgme_key_t key[3] = { NULL, NULL, NULL };
@@ -832,7 +771,7 @@ std::string gpgAuthPluginAPI::gpgEncrypt(std::string data,
 
 std::string gpgAuthPluginAPI::gpgDecrypt(std::string data)
 {
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_decrypt_result_t decrypt_result;
     gpgme_verify_result_t verify_result;
@@ -974,7 +913,7 @@ std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
     std::string with_keyid, long local_only, long trust_sign, 
     long trust_level)
 {
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
@@ -994,7 +933,7 @@ std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
     std::string original_value = gpgAuthPluginAPI::set_preference("default-key", (char *) with_keyid.c_str());
 
     gpgme_release (ctx);
-    ctx = init();
+    ctx = get_gpgme_ctx();
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
         result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
@@ -1033,7 +972,7 @@ std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
 
 std::string gpgAuthPluginAPI::gpgEnableKey(std::string keyid)
 {
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
@@ -1066,7 +1005,7 @@ std::string gpgAuthPluginAPI::gpgEnableKey(std::string keyid)
 
 std::string gpgAuthPluginAPI::gpgDisableKey(std::string keyid)
 {
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
@@ -1101,7 +1040,7 @@ std::string gpgAuthPluginAPI::gpgDisableKey(std::string keyid)
 
 std::string gpgAuthPluginAPI::gpgDeleteUIDSign(std::string keyid,
     long uid, long signature) {
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
@@ -1165,7 +1104,7 @@ std::string gpgAuthPluginAPI::gpgGenKeyWorker(std::string key_type, std::string 
         )
     ) {
 
-    gpgme_ctx_t ctx = init();
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     std::string params = "<GnupgKeyParms format=\"internal\">\n"
         "Key-Type: " + key_type + "\n"
@@ -1258,8 +1197,8 @@ std::string gpgAuthPluginAPI::gpgGenKey(std::string key_type,
     return "queued";
 }
 
-std::string gpgAuthPluginAPI::gpgImportKey(std::string ascii_key) {
-    gpgme_ctx_t ctx = init();
+FB::variant gpgAuthPluginAPI::gpgImportKey(std::string ascii_key) {
+    gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t key_buf;
     gpgme_import_result_t result;
@@ -1270,63 +1209,38 @@ std::string gpgAuthPluginAPI::gpgImportKey(std::string ascii_key) {
 
     result = gpgme_op_import_result (ctx);
     gpgme_data_release (key_buf);
-	std::string status = "{ ";
-	status += "\"considered\" : ";
-	status += result->considered? "1":"0";
-	status += ",\n";
-	status += "\"no_user_id\" : ";
-	status += result->no_user_id? "1":"0";
-	status += ",\n";
-	status += "\"imported\" : ";
-	status += result->imported? "1":"0";
-	status += ",\n";
-	status += "\"imported_rsa\" : ";
-	status += result->imported_rsa? "1":"0";
-	status += ",\n";
-	status += "\"new_user_ids\" : ";
-	status += result->new_user_ids? "1":"0";
-	status += ",\n";
-	status += "\"new_sub_keys\" : ";
-	status += result->new_sub_keys? "1":"0";
-	status += ",\n";
-	status += "\"new_signatures\" : ";
-	status += result->new_signatures? "1":"0";
-	status += ",\n";
-	status += "\"new_revocations\" : ";
-	status += result->new_revocations? "1":"0";
-	status += ",\n";
-	status += "\"secret_read\" : ";
-	status += result->secret_read? "1":"0";
-	status += ",\n";
-	status += "\"secret_imported\" : ";
-	status += result->secret_imported? "1":"0";
-	status += ",\n";
-	status += "\"secret_unchanged\" : ";
-	status += result->secret_unchanged? "1":"0";
-	status += ",\n";
-	status += "\"not_imported\" : ";
-	status += result->not_imported? "1":"0";
-	status += ",\n";
-    status += "\"imports\" : {\n\t";
 
-    int nimports= 0;
+    FB::VariantMap status;
+
+    status["considered"] = result->considered;
+    status["no_user_id"] = result->no_user_id;
+    status["imported"] = result->imported;
+    status["imported_rsa"] = result->imported_rsa;
+    status["new_user_ids"] = result->new_user_ids;
+    status["new_sub_keys"] = result->new_sub_keys;
+    status["new_signatures"] = result->new_signatures;
+    status["new_revocations"] = result->new_revocations;
+    status["secret_read"] = result->secret_read;
+    status["secret_imported"] = result->secret_imported;
+    status["secret_unchanged"] = result->secret_unchanged;
+    status["not_imported"] = result->not_imported;
+
+    FB::VariantMap imports_map;
+    int nimports = 0;
     gpgme_import_status_t import;
     for (nimports=0, import=result->imports; import; import = import->next, nimports++) {
-		status += "\"";
-		status += i_to_str(nimports);
-		status += "\" : { ";
-		status += "\"fingerprint\" : \"";
-		status += import->fpr;
-		status += "\",\n\t\t";
-		status += "\"result\" : \"";
-		status += gpgme_strerror(import->result);
-		status += "\",\n\t\t";
-		status += "\"status\" : ";
-		status += import->status? "1":"0";
-		status += " },\n\t";
+        FB::VariantMap import_item_map;
+        import_item_map["fingerprint"] = nonnull (import->fpr);
+        import_item_map["result"] = gpgme_strerror(import->result);
+        import_item_map["status"] = import->status;
+        import_item_map["new_key"] = import->status & GPGME_IMPORT_NEW? 1:0;
+        import_item_map["new_uid"] = import->status & GPGME_IMPORT_UID? 1:0;
+        import_item_map["new_sig"] = import->status & GPGME_IMPORT_SIG? 1:0;
+        import_item_map["new_subkey"] = import->status & GPGME_IMPORT_SUBKEY? 1:0;
+        import_item_map["new_secret"] = import->status & GPGME_IMPORT_SECRET? 1:0;
+		imports_map[i_to_str(nimports)] = import_item_map;
 	}
-    status = status.substr (0, status.length() - 3);
-	status += "\n\t}\n}";
+    status["imports"] = imports_map;
     gpgme_release (ctx);
 
     return status;

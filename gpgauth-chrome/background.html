@@ -119,7 +119,7 @@ var gpgauthBackground = {
         console.log("my plugin returned: " + result);
         /* Check to make sure all of the enabled_keys are private keys 
             this would occur if the key was enabled and then the secret key was deleted. */
-        secret_keys = JSON.parse(plugin.getPrivateKeyList());
+        secret_keys = plugin.getPrivateKeyList();
         for (key in gpgauth_prefs.enabled_keys.get()){
             if (key in secret_keys == false){
                 gpgauth_prefs.enabled_keys.remove(key);
@@ -159,7 +159,7 @@ var gpgauthBackground = {
             domain_keylist = plugin.getDomainKey(request.params['domain']);
             domain_key = null;
             // Iterate through the returned domain_keylist to ensure it is not an empty object
-            for (key in JSON.parse(domain_keylist)) { domain_key = key; break; }
+            for (key in domain_keylist) { domain_key = key; break; }
             if (!localStorage.enabled_keys) {
                 response = {'valid': false, 'errorno': 2, 'error': 'You have not enabled any personal keys for use with gpgAuth'};
                 dialog = 'dialogs/popup_error.html';
@@ -168,7 +168,7 @@ var gpgauthBackground = {
                 dialog = 'dialogs/popup_error.html';
             } else {
                 gpgauthBackground.gpg_elements[request.params['domain']]['headers'] = request.params['headers'];
-                response = gpgauthBackground.doServerTests(request.params['domain'], JSON.parse(domain_keylist), request.params['server_verify_url'], request.params['port']);
+                response = gpgauthBackground.doServerTests(request.params['domain'], domain_keylist, request.params['server_verify_url'], request.params['port']);
                 user_authenticated = request.params['headers']['X-GPGAuth-Authenticated'] == 'true' ? true : false;
                 dialog = user_authenticated && domain_key ? 'dialogs/success.html' : 'dialogs/enabled.html';
                 if (!domain_key) {
@@ -333,6 +333,10 @@ var gpgauthBackground = {
                 validity = false;
                 msg = "No Pubkey URL Specified";
             }
+            if (!validity)
+                msg = { 'error': msg }
+            else
+                msg['error'] = false;
             response = { 'valid': validity, 'msg': msg };
         }
         // Return the response and let the connection be cleaned up.
@@ -430,7 +434,7 @@ var gpgauthBackground = {
             private_keylist = {};
         }
 
-        var keylist = JSON.parse(plugin.getPublicKeyList("", 0));
+        var keylist = plugin.getPublicKeyList();
         if (!keylist) {
             keylist = {};
         }
@@ -453,7 +457,7 @@ var gpgauthBackground = {
                     break;
                 }
             }
-            for (key in domain_keylist) { domain_key = key; break; }
+<!--            for (key in domain_keylist) { domain_key = key; break; }-->
             for (privateKeyId in private_keylist) {
                 if (!private_keylist[privateKeyId].keystatus && 
                     privateKeyId in gpgauth_prefs.enabled_keys.get()){

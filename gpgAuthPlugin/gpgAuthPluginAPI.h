@@ -30,16 +30,19 @@ public:
     
     gpgAuthPluginPtr getPlugin();
 
-    gpgme_ctx_t init();
+    int init();
+
     int is_initted;
+    std::string get_gpgme_version();
     std::string _gpgme_version;
     std::string get_testString();
+    gpgme_ctx_t get_gpgme_ctx();
     void set_testString(const std::string& val);
 
-    std::string getKeyList(const std::string& domain, int secret_only);
-    std::string getPublicKeyList();
-    std::string getPrivateKeyList();
-    std::string getDomainKey(const std::string& domain);
+    FB::variant getKeyList(const std::string& domain, int secret_only);
+    FB::variant getPublicKeyList();
+    FB::variant getPrivateKeyList();
+    FB::variant getDomainKey(const std::string& domain);
     int verifyDomainKey(std::string domain, std::string domain_key_fpr, 
         long uid_idx, std::string required_sig_keyid);
 
@@ -62,7 +65,7 @@ public:
             std::string name_email, std::string expire_date,
             std::string passphrase);
     void threaded_gpgGenKey(genKeyParams params);
-    std::string gpgImportKey(std::string ascii_key);
+    FB::variant gpgImportKey(std::string ascii_key);
 
     std::string get_version();
     std::string gpgconf_detected();

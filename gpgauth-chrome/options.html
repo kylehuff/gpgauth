@@ -12,15 +12,16 @@ $(function(){
     $('#enable-gpgauth-check')[0].checked = 
         (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true');
 
+    var pkeylist = window.ext.plugin.getPrivateKeyList();
+
+    if (!pkeylist) {
+        // if the parsing failed, create an empty keylist
+        pkeylist = {};
+    }
+
     function buildPrivateKeylist(openKey, openUID){
-        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
 
-        if (!pkeylist) {
-            // if the parsing failed, create an empty keylist
-            pkeylist = {};
-        }
-
-        var keylist = JSON.parse(window.ext.plugin.getPublicKeyList("", 0));
+        var keylist = window.ext.plugin.getPublicKeyList();
         if (!keylist) {
             // if the parsing failed, create an empty keylist
             keylist = {};
@@ -261,7 +262,7 @@ $(function(){
         if (openKey) {
             wait_icon = $('#public_keylist').children('.open_key').find('a').children('.trust')[0].children(0);
             uid_list = $('#public_keylist').children('.open_key').children('h3').find('a')[0];
-            setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 500);
+            setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 300);
         }
         
         $('.uidlist').find('.open_uid').accordion("activate", 0);
@@ -290,7 +291,6 @@ $(function(){
             $("#delsig-confirm").dialog("option", "buttons", { "Delete": function() {
                         delsig_result = window.ext.plugin.gpgDeleteUIDSign(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1);
                         console.log(params[1], parseInt(params[2]) + 1, parseInt(params[3]) + 1)
-                        //$(calling_button).parent().parent()[0].removeChild($(calling_button).parent()[0]);
                         buildPublicKeylist(params[1], params[2]);
                         $("#delsig-confirm").dialog("close");
                     },
@@ -346,13 +346,7 @@ $(function(){
 
     // Begin public keylist generation
     function buildPublicKeylist(openKey, openUID){
-        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
-        if (!pkeylist) {
-            // if the parsing failed, create an empty keylist
-            pkeylist = {};
-        }
-
-        var keylist = JSON.parse(window.ext.plugin.getPublicKeyList("", 0));
+        var keylist = window.ext.plugin.getPublicKeyList();
         if (!keylist) {
             // if the parsing failed, create an empty keylist
             keylist = {};
@@ -466,7 +460,7 @@ $(function(){
                 modal: true,
                 title: "Calculating Trust"
             }).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
-            setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 500);
+            setTimeout( function() { refresh_trust(uid_list, wait_icon) }, 300);
         }
 
         $('.uidlist').find('.open_uid').accordion("activate", 0);
@@ -545,14 +539,8 @@ $(function(){
     }
     /* end publickeylist */
 
-
-    //buildKeylist("private");
-    //buildKeylist("public");
     buildPrivateKeylist();
     buildPublicKeylist();
-    
-
-
 
     $('#enable-gpgauth-check').button({
         'label': (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true') ? 'Enabled' : 'Disabled'
@@ -571,12 +559,7 @@ $(function(){
             uidcontainer = item.parentNode.parentNode.children[1];
         }
         uidlist = $(uidcontainer).children('[class~=uid]');
-        var pkeylist = JSON.parse(window.ext.plugin.getPrivateKeyList());
-        if (!pkeylist) {
-            // if the parsing failed, create an empty keylist
-            pkeylist = {};
-        }
-        var keylist = JSON.parse(window.ext.plugin.getPublicKeyList("", 0));
+        var keylist = window.ext.plugin.getPublicKeyList();
         if (!keylist) {
             // if the parsing failed, create an empty keylist
             keylist = {};
@@ -585,20 +568,10 @@ $(function(){
         GAUTrust = -1;
         uidlist.each(function(event, uidobj) {
             uid = uidobj.id.split('-')[1];
-            for (privateKeyId in pkeylist) {
-                if (!pkeylist[privateKeyId].keystatus && 
-                    privateKeyId in window.ext.gpgauth_prefs.enabled_keys.get()){
-                    pkey_status = 0;
-                    pkey_status += parseInt(keylist[key].expired)
-                    pkey_status += parseInt(keylist[key].disabled)
-                    pkey_status += parseInt(keylist[key].invalid)
-                    pkey_status += parseInt(keylist[key].revoked)
-                    //console.log("'" + keylist[key].uids[uid].uid + "' '" + key + "' " + uid + " '" + privateKeyId + "'");
-                    GAUTrust = (pkey_status || keylist[key].uids[0].signatures.length < 1) ? '?' : window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, key, uid, privateKeyId);
-                    //console.log(keylist[key].uids[uid].uid, key, uid, privateKeyId, GAUTrust);
-                    if (GAUTrust == '?' || GAUTrust == 0) {
-                        break;
-                    }
+            for (privateKeyId in window.ext.gpgauth_prefs.enabled_keys.get()) {
+                GAUTrust = window.ext.plugin.verifyDomainKey(keylist[key].uids[uid].uid, key, uid, privateKeyId);
+                if (GAUTrust == 0) {
+                    break;
                 }
             }
             validity = (parseInt(keylist[key].uids[uid].revoked)) ? 'revoked' : keylist[key].uids[uid].validity;
