@@ -1,71 +1,29 @@
 #include "JSObject.h"
-#include "variant_list.h"
-#include "DOM/Document.h"
 
 #include "gpgAuthPluginAPI.h"
 #include "keyedit.h"
-
 
 /* 
  * Define non-member methods/inlines
  */
 
-#define errstr "{ \n\
-    \"error\": \"true\" \n\
-    \"method\": \"%s\", \n\
-    \"gpg_error_code\" : \"%d\", \n\
-    \"error_string\": \"%s\", \n\
-    \"line\": \"%d\", \n\
-    \"file\": \"%s\" \n}"
-
 #ifdef HAVE_W32_SYSTEM
 #define __func__ __FUNCTION__
 #endif
 
-std::string
-vformat (const char *fmt, va_list ap)
-{
-    // Allocate a buffer on the stack that's big enough for us almost
-    // all the time.  Be prepared to allocate dynamically if it doesn't fit.
-    size_t size = 1024;
-    char stackbuf[1024];
-    std::vector<char> dynamicbuf;
-    char *buf = &stackbuf[0];
-
-    while (1) {
-        // Try to vsnprintf into our buffer.
-        int needed = vsnprintf (buf, size, fmt, ap);
-        // NB. C99 (which modern Linux and OS X follow) says vsnprintf
-        // failure returns the length it would have needed.  But older
-        // glibc and current Windows return -1 for failure, i.e., not
-        // telling us how much was needed.
-
-        if (needed <= (int)size && needed >= 0) {
-            // It fit fine so we're done.
-            return std::string (buf, (size_t) needed);
-        }
-
-        // vsnprintf reported that it wanted to write more characters
-        // than we allotted.  So try again using a dynamic buffer.  This
-        // doesn't happen very often if we chose our initial size well.
-        size = (needed > 0) ? (needed+1) : (size*2);
-        dynamicbuf.resize (size);
-        buf = &dynamicbuf[0];
-    }
+FB::VariantMap get_error_map(const std::string& method,
+                        gpgme_error_t gpg_error_code,
+                        const std::string& error_string,
+                        int line, const std::string& file){
+    FB::VariantMap error_map_obj;
+    error_map_obj["error"] = true;
+    error_map_obj["method"] = method;
+    error_map_obj["gpg_error_code"] = gpg_error_code;
+    error_map_obj["error_string"] = error_string;
+    error_map_obj["line"] = line;
+    error_map_obj["file"] = file;
+    return error_map_obj;
 }
-
-class json_string {
-private:
-  std::string text;
-public:
-    std::string format(char *fmt, ...) {
-        va_list ap;
-        va_start (ap, fmt);
-        std::string buf = vformat (fmt, ap);
-        va_end (ap);
-        return buf;
-    }
-};
 
 /* An inline method to convert a null char */
 inline
@@ -108,15 +66,15 @@ gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr h
                      make_property(this,
                         &gpgAuthPluginAPI::get_version));
 
-    registerProperty("_gpgme_version",
+    registerProperty("gpg_status",
                     make_property(this,
-                        &gpgAuthPluginAPI::get_gpgme_version));
+                        &gpgAuthPluginAPI::get_gpg_status));
 
     registerProperty("gpgconf_detected",
                      make_property(this,
                         &gpgAuthPluginAPI::gpgconf_detected));
 
-    int inited = gpgAuthPluginAPI::init();
+    gpgAuthPluginAPI::init();
 
 }
 
@@ -133,32 +91,48 @@ gpgAuthPluginPtr gpgAuthPluginAPI::getPlugin()
     return plugin;
 }
 
-int gpgAuthPluginAPI::init(){
+void gpgAuthPluginAPI::init(){
     gpgme_ctx_t ctx;
     gpgme_error_t err;
+    FB::VariantMap error_map;
+    FB::VariantMap response;
 
     /* Initialize the locale environment.
      * The function `gpgme_check_version` must be called before any other
      * function in the library, because it initializes the thread support
      * subsystem in GPGME. (from the info page) */  
-    gpgAuthPluginAPI::_gpgme_version = (char *) gpgme_check_version(NULL);
+    std::string gpgme_version = (char *) gpgme_check_version(NULL);
     setlocale (LC_ALL, "");
     gpgme_set_locale (NULL, LC_CTYPE, setlocale (LC_CTYPE, NULL));
     #ifdef LC_MESSAGES
         gpgme_set_locale (NULL, LC_MESSAGES, setlocale (LC_MESSAGES, NULL));
     #endif
     err = gpgme_engine_check_version (GPGME_PROTOCOL_OpenPGP);
-    if (err != GPG_ERR_NO_ERROR)
-        return -1;
+    if (err != GPG_ERR_NO_ERROR){
+        error_map = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+    }
 
     err = gpgme_new (&ctx);
     if (err != GPG_ERR_NO_ERROR)
-        return -1;
-    
+        error_map = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     if (ctx)
         gpgme_release (ctx);
 
-    return 1;
+    std::string gpg_agent_info = (char *) getenv("GPG_AGENT_INFO");
+
+    if (error_map.size()) {
+        //response = error_map;
+        response["gpgme_valid"] = false;
+    } else {
+        response["error"] = false;
+        response["gpgme_valid"] = true;
+    }
+    response["gpg_agent_info"] = gpg_agent_info;
+    response["gpgconf_detected"] = gpgconf_detected();
+    response["gpgme_version"] = gpgme_version;
+
+    gpgAuthPluginAPI::gpg_status_map = response;
 };
 
 gpgme_ctx_t gpgAuthPluginAPI::get_gpgme_ctx(){
@@ -178,15 +152,19 @@ gpgme_ctx_t gpgAuthPluginAPI::get_gpgme_ctx(){
     return ctx;
 }
 
-std::string gpgAuthPluginAPI::get_gpgme_version(){
-    return gpgAuthPluginAPI::_gpgme_version;
+//std::string gpgAuthPluginAPI::get_gpgme_version(){
+//    return gpgAuthPluginAPI::_gpgme_version;
+//}
+
+FB::VariantMap gpgAuthPluginAPI::get_gpg_status(){
+    return gpgAuthPluginAPI::gpg_status_map;
 }
 
 /*
     This method executes gpgauth.getKeyList with an empty string which
         returns all keys in the keyring.
 */
-FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_only){
+FB::VariantMap gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_only){
     /* declare variables */
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
@@ -201,7 +179,9 @@ FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
 
     /* set protocol to use in our context */
     err = gpgme_set_protocol(ctx, GPGME_PROTOCOL_OpenPGP);
-    if(err != GPG_ERR_NO_ERROR) return keylist_map["error"] = "error: 2; Problem with protocol type";
+    if(err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        //keylist_map["error"] = "error: 2; Problem with protocol type";
 
     /* apply the keylist mode to the context and set
         the keylist_mode 
@@ -217,9 +197,10 @@ FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
     } else { // list all keys
         err = gpgme_op_keylist_ext_start (ctx, NULL, secret_only, 0);
     }
-    if(err != GPG_ERR_NO_ERROR) return keylist_map["error"] = "error: 3; Problem with keylist_start";
+    if(err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        //return keylist_map["error"] = "error: 3; Problem with keylist_start";
 
-    std::string retVal = "{";
     while (!(err = gpgme_op_keylist_next (ctx, &key)))
      {
         /*declare nuids (Number of UIDs) 
@@ -231,42 +212,41 @@ FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
         int tnsigs;
         FB::VariantMap key_map;
 
-        /* iterate through the keys/subkeys and add them to the std::string retVal
-            - the retVal string will be parsed as JSON data in the extension */
+        /* iterate through the keys/subkeys and add them to the key_map object */
         if (key->uids && key->uids->name)
             key_map["name"] = nonnull (key->uids->name);
         if (key->subkeys && key->subkeys->fpr)
             key_map["fingerprint"] = nonnull (key->subkeys->fpr);
         if (key->uids && key->uids->email)
             key_map["email"] = nonnull (key->uids->email);
-        key_map["expired"] = key->expired? 1:0;
-        key_map["revoked"] = key->revoked? 1:0;
-        key_map["disabled"] = key->disabled? 1:0;
-        key_map["invalid"] = key->invalid? 1:0;
-        key_map["secret"] = key->secret? 1:0;
+        key_map["expired"] = key->expired? true : false;
+        key_map["revoked"] = key->revoked? true : false;
+        key_map["disabled"] = key->disabled? true : false;
+        key_map["invalid"] = key->invalid? true : false;
+        key_map["secret"] = key->secret? true : false;
         key_map["protocol"] = key->protocol == GPGME_PROTOCOL_OpenPGP? "OpenPGP":
             key->protocol == GPGME_PROTOCOL_CMS? "CMS":
             key->protocol == GPGME_PROTOCOL_UNKNOWN? "Unknown": "[?]";
-        key_map["can_encrypt"] = key->can_encrypt? 1:0;
-        key_map["can_sign"] = key->can_sign? 1:0;
-        key_map["can_certify"] = key->can_certify? 1:0;
-        key_map["can_authenticate"] = key->can_authenticate? 1:0;
-        key_map["is_qualified"] = key->is_qualified? 1:0;
+        key_map["can_encrypt"] = key->can_encrypt? true : false;
+        key_map["can_sign"] = key->can_sign? true : false;
+        key_map["can_certify"] = key->can_certify? true : false;
+        key_map["can_authenticate"] = key->can_authenticate? true : false;
+        key_map["is_qualified"] = key->is_qualified? true : false;
 
         FB::VariantMap subkeys_map;
         for (nsubs=0, subkey=key->subkeys; subkey; subkey = subkey->next, nsubs++) {
             FB::VariantMap subkey_item_map;
             subkey_item_map["subkey"] = nonnull (subkey->fpr);
-            subkey_item_map["expired"] = subkey->expired? 1:0;
-            subkey_item_map["revoked"] = subkey->revoked? 1:0;
-            subkey_item_map["disabled"] = subkey->disabled? 1:0;
-            subkey_item_map["invalid"] = subkey->invalid? 1:0;
-            subkey_item_map["secret"] = subkey->secret? 1:0;
-            subkey_item_map["can_encrypt"] = subkey->can_encrypt? 1:0;
-            subkey_item_map["can_sign"] = subkey->can_sign? 1:0;
-            subkey_item_map["can_certify"] = subkey->can_certify? 1:0;
-            subkey_item_map["can_authenticate"] = subkey->can_authenticate? 1:0;
-            subkey_item_map["is_qualified"] = subkey->is_qualified? 1:0;
+            subkey_item_map["expired"] = subkey->expired? true : false;
+            subkey_item_map["revoked"] = subkey->revoked? true : false;
+            subkey_item_map["disabled"] = subkey->disabled? true : false;
+            subkey_item_map["invalid"] = subkey->invalid? true : false;
+            subkey_item_map["secret"] = subkey->secret? true : false;
+            subkey_item_map["can_encrypt"] = subkey->can_encrypt? true : false;
+            subkey_item_map["can_sign"] = subkey->can_sign? true : false;
+            subkey_item_map["can_certify"] = subkey->can_certify? true : false;
+            subkey_item_map["can_authenticate"] = subkey->can_authenticate? true : false;
+            subkey_item_map["is_qualified"] = subkey->is_qualified? true : false;
             subkey_item_map["size"] = subkey->length;
             subkey_item_map["created"] = subkey->timestamp;
             subkey_item_map["expires"] = subkey->expires;
@@ -281,8 +261,8 @@ FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
             uid_item_map["uid"] = nonnull (uid->name);
             uid_item_map["email"] = nonnull (uid->email);
             uid_item_map["comment"] = nonnull (uid->comment);
-            uid_item_map["invalid"] = uid->invalid? 1:0;
-            uid_item_map["revoked"] = uid->revoked? 1:0;
+            uid_item_map["invalid"] = uid->invalid? true : false;
+            uid_item_map["revoked"] = uid->revoked? true : false;
             tnsigs = 0;
             for (nsigs=0, sig=uid->signatures; sig; sig = sig->next, nsigs++) {
                 tnsigs += 1;
@@ -314,7 +294,8 @@ FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
     result = gpgme_op_keylist_result (ctx);
     if (result->truncated)
      {
-        return keylist_map["error"] = "error: 4; Key listing unexpectedly truncated";
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        //return keylist_map["error"] = "error: 4; Key listing unexpectedly truncated";
      }
     gpgme_release (ctx);
     return keylist_map;
@@ -325,7 +306,7 @@ FB::variant gpgAuthPluginAPI::getKeyList(const std::string& domain, int secret_o
         secret_only=0 which returns all Public Keys in the keyring.
 */
 
-FB::variant gpgAuthPluginAPI::getPublicKeyList(){
+FB::VariantMap gpgAuthPluginAPI::getPublicKeyList(){
     return gpgAuthPluginAPI::getKeyList("", 0);
 }
 
@@ -335,7 +316,7 @@ FB::variant gpgAuthPluginAPI::getPublicKeyList(){
         the user has the corrisponding secret key.
 */
 
-FB::variant gpgAuthPluginAPI::getPrivateKeyList(){
+FB::VariantMap gpgAuthPluginAPI::getPrivateKeyList(){
     return gpgAuthPluginAPI::getKeyList("", 1);
 }
 
@@ -343,7 +324,7 @@ FB::variant gpgAuthPluginAPI::getPrivateKeyList(){
     This method just calls gpgauth.getKeyList with a domain name
         as the parameter
 */
-FB::variant gpgAuthPluginAPI::getDomainKey(const std::string& domain){
+FB::VariantMap gpgAuthPluginAPI::getDomainKey(const std::string& domain){
     return gpgAuthPluginAPI::getKeyList(domain, 0);
 }
 
@@ -534,17 +515,14 @@ int gpgAuthPluginAPI::verifyDomainKey(const std::string& domain,
     return domain_key_valid;
 }
 
-std::string gpgAuthPluginAPI::gpgconf_detected() {
+bool gpgAuthPluginAPI::gpgconf_detected() {
     gpgme_error_t err;
     std::string cfg_present;
     err = gpgme_engine_check_version (GPGME_PROTOCOL_GPGCONF);
     if (err != GPG_ERR_NO_ERROR) {
-        cfg_present = "false";
-    } else {
-        cfg_present = "true";
+        return false;
     }
-
-    return cfg_present;
+    return true;
 }
 
 std::string gpgAuthPluginAPI::get_preference(const std::string& preference) {
@@ -553,16 +531,10 @@ std::string gpgAuthPluginAPI::get_preference(const std::string& preference) {
     gpgme_conf_comp_t conf, comp;
     gpgme_conf_opt_t opt;
     std::string return_value;
-    json_string error;
 
     err = gpgme_engine_check_version (GPGME_PROTOCOL_GPGCONF);
-    if (err) {
-        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
-    }
 
     err = gpgme_op_conf_load (ctx, &conf);
-    if (err)
-        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     comp = conf;
     while (comp && strcmp (comp->name, "gpg"))
@@ -571,22 +543,14 @@ std::string gpgAuthPluginAPI::get_preference(const std::string& preference) {
     if (comp) {
         opt = comp->options;
         while (opt && strcmp (opt->name, (char *) preference.c_str())){
-#ifdef DEBUG
-            printf( "opt: %s\n", opt->name);
-#endif
-            if (opt->next)
-	            opt = opt->next;
-	        else
-		        opt->name = (char *) preference.c_str();
+            opt = opt->next;
         }
 
         if (opt->value) {
-	        //printf("from value: '%s' ", opt->value);
-			//return_value = (char *) opt->value;
-			return_value = "";
-		} else {
-			return_value = "";
-		}
+            return_value = opt->value->value.string;
+        } else {
+            return_value = "blank";
+        }
 	}
 
     gpgme_conf_release (conf);
@@ -595,21 +559,21 @@ std::string gpgAuthPluginAPI::get_preference(const std::string& preference) {
 
 }
 
-std::string gpgAuthPluginAPI::set_preference(const std::string& preference, const std::string& pref_value) {
+FB::variant gpgAuthPluginAPI::set_preference(const std::string& preference, const std::string& pref_value) {
 	gpgme_error_t err;
-	json_string error;
 	gpgme_protocol_t proto = GPGME_PROTOCOL_OpenPGP;
     err = gpgme_engine_check_version (proto);
     if (err != GPG_ERR_NO_ERROR)
-        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_conf_comp_t conf, comp;
+    FB::variant response;
     std::string return_code;
 
     err = gpgme_op_conf_load (ctx, &conf);
     if (err != GPG_ERR_NO_ERROR)
-        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_conf_arg_t original_arg, arg;
     gpgme_conf_opt_t opt;
@@ -617,7 +581,7 @@ std::string gpgAuthPluginAPI::set_preference(const std::string& preference, cons
     err = gpgme_conf_arg_new (&arg, GPGME_CONF_STRING, (char *) pref_value.c_str());
 
     if (err != GPG_ERR_NO_ERROR)
-        return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     comp = conf;
     while (comp && strcmp (comp->name, "gpg"))
@@ -635,39 +599,31 @@ std::string gpgAuthPluginAPI::set_preference(const std::string& preference, cons
             original_arg = opt->value;
             return_code = "blank";
         }
-        
+
         /* if the new argument and original argument are the same, return 0, 
             there is nothing to do. */
-        if (original_arg && !strcmp (original_arg->value.string, arg->value.string))
+        if (original_arg && !strcmp (original_arg->value.string, arg->value.string)) {
             return "0";
+        }
 
-#ifdef DEBUG
-        printf("setting option: %s ", opt->name);
-        
-        if (!strcmp(return_code.c_str(), "blank")) {
-            printf("from value: '%s' ", "<empty>");
-            printf("to value: '%s'\n", arg->value.string);
-        } else {
-            printf("from value: '%s' ", original_arg->value.string);
-            printf("to value: '%s'\n", arg->value.string);
-        }   
-#endif
         if (opt) {
             if (!strcmp(pref_value.c_str(), "blank"))
                 err = gpgme_conf_opt_change (opt, 0, NULL);
             else
                 err = gpgme_conf_opt_change (opt, 0, arg);
-            if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
-            
+            if (err != GPG_ERR_NO_ERROR)
+                return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
             err = gpgme_op_conf_save (ctx, comp);
-            if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+            if (err != GPG_ERR_NO_ERROR)
+                return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }
     }
-    
+
+    gpgme_conf_release (conf);
+
     if (!return_code.length())
         return_code = original_arg->value.string;
-        
-    gpgme_conf_release (conf);
 
     return return_code;
 }
@@ -684,7 +640,7 @@ std::string gpgAuthPluginAPI::set_preference(const std::string& preference, cons
 /* NOTE: Normally, we should call this without a value for
     encrypt_from_key to keep the anonymity of the user until after the 
     host has been validated */
-std::string gpgAuthPluginAPI::gpgEncrypt(const std::string& data, 
+FB::variant gpgAuthPluginAPI::gpgEncrypt(const std::string& data, 
         const std::string& enc_to_keyid, const std::string& enc_from_keyid,
         const std::string& sign)
 {
@@ -694,44 +650,47 @@ std::string gpgAuthPluginAPI::gpgEncrypt(const std::string& data,
     gpgme_data_t in, out;
     gpgme_key_t key[3] = { NULL, NULL, NULL };
     gpgme_encrypt_result_t enc_result;
-    json_string error;
+    FB::VariantMap response;
 
     err = gpgme_data_new_from_mem (&in, data.c_str(), data.length(), 0);
-    if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+    if (err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_set_encoding(in, GPGME_DATA_ENCODING_ARMOR);
-    if(err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
-    
+    if(err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_data_new (&out);
-    if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
-    
+    if (err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_data_set_encoding(out, GPGME_DATA_ENCODING_ARMOR);
-    if(err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+    if(err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_get_key (ctx, enc_to_keyid.c_str(),
            &key[0], 0);
-    if(err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+    if(err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     if (enc_from_keyid.length()) {
         err = gpgme_get_key (ctx, enc_from_keyid.c_str(),
                &key[1], 0);
-        if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        if (err != GPG_ERR_NO_ERROR)
+            return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     }
 
     err = gpgme_op_encrypt (ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
-    if (err != GPG_ERR_NO_ERROR) return error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+    if (err != GPG_ERR_NO_ERROR)
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     gpgme_data_seek(in, 0, SEEK_SET);
     enc_result = gpgme_op_encrypt_result (ctx);
     if (enc_result->invalid_recipients)
     {
-#ifdef DEBUG
-      fprintf (stderr, "Invalid recipient encountered: %s\n",
-           enc_result->invalid_recipients->fpr);
-#endif
-      return error.format((char *) errstr, __func__, -1, "Invalid recipient", __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     }
 
-    
     size_t out_size = 0;
     std::string out_buf;
     out_buf = gpgme_data_release_and_get_mem (out, &out_size);
@@ -740,7 +699,7 @@ std::string gpgAuthPluginAPI::gpgEncrypt(const std::string& data,
     /* set the output object to NULL since it has
         already been released */
     out = NULL;
-    
+
     /* if any of the gpgme objects have not yet
         been release, do so now */
     gpgme_key_unref (key[0]);
@@ -752,10 +711,13 @@ std::string gpgAuthPluginAPI::gpgEncrypt(const std::string& data,
     if (out)
         gpgme_data_release (out);
 
-    return out_buf;
+    response["data"] = out_buf;
+    response["error"] = false;
+
+    return response;
 }
 
-std::string gpgAuthPluginAPI::gpgDecrypt(const std::string& data)
+FB::variant gpgAuthPluginAPI::gpgDecrypt(const std::string& data)
 {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
@@ -763,23 +725,21 @@ std::string gpgAuthPluginAPI::gpgDecrypt(const std::string& data)
     gpgme_verify_result_t verify_result;
     gpgme_signature_t sig;
     gpgme_data_t in, out;
-    std::string out_buf, retVal;
+    std::string out_buf;
+    FB::VariantMap response;
     char *agent_info;
-    int r_stat, nsigs;
+    int nsigs;
 
     agent_info = getenv("GPG_AGENT_INFO");
 
-    retVal = "{ ";
     err = gpgme_data_new_from_mem (&in, data.c_str(), data.length(), 0);
     if (err != GPG_ERR_NO_ERROR) {
-        retVal += "\"error\" : \"Problem creating gpgme input buffer\" }";
-        return retVal;
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     }
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR) {
-        retVal += "\"error\" : \"Unable to allocate result buffer\" }";
-        return retVal;
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     }
 
     err = gpgme_op_decrypt_verify (ctx, in, out);
@@ -792,25 +752,21 @@ std::string gpgAuthPluginAPI::gpgDecrypt(const std::string& data)
         //   either bad data, or signed only data
         if (verify_result->signatures) {
             if (verify_result->signatures->status != GPG_ERR_NO_ERROR) {
-                retVal += "\"error\" : \"No valid GPG data to decrypt or signatures to verify; possibly bad armor.\" }";
-                return retVal;
+                //No valid GPG data to decrypt or signatures to verify; possibly bad armor.\" }";
+                return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
             }
         }
         if (gpg_err_code(err) == GPG_ERR_CANCELED) {
-            retVal += "\"error\" : \"Passphrase cancelled\" }";
-            return retVal;
+            return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }
         if (gpg_err_code(err) == GPG_ERR_BAD_PASSPHRASE) {
-            retVal += "\"error\" : \"Bad passphrase\" }";
-            return retVal;
+            return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }
         if (gpg_err_source(err) == GPG_ERR_SOURCE_PINENTRY) {
-            retVal += "\"error\" : \"Pinentry failed\" }";
-            return retVal;
+            return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }
         if (gpg_err_source(err) == GPG_ERR_SOURCE_GPGAGENT) {
-            retVal += "\"error\" : \"GPGAgent error\" }";
-            return retVal;
+            return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }
     }
 
@@ -818,84 +774,44 @@ std::string gpgAuthPluginAPI::gpgDecrypt(const std::string& data)
     out_buf = gpgme_data_release_and_get_mem (out, &out_size);
     /* strip the size_t data out of the output buffer */
     out_buf = out_buf.substr(0, out_size);
-    retVal += "\"data\" : \"" + out_buf + "\", ";
-    retVal += "\"signatures\" : { ";
+    response["data"] = out_buf;
+
     /* set the output object to NULL since it has
         already been released */
     out = NULL;
     out_buf = "";
 
+    FB::VariantMap signatures;
     if (verify_result->signatures) {
         for (nsigs=0, sig=verify_result->signatures; sig; sig = sig->next, nsigs++) {
-            retVal += "\"";
-            retVal += i_to_str(nsigs);
-            retVal += "\" : { \"fingerprint\" : \"";
-            retVal += (char *) sig->fpr;
-            retVal += "\", \"timestamp\" : \"";
-            retVal += i_to_str(sig->timestamp);
-            retVal += "\", \"expiration\" : \"";
-            retVal += i_to_str(sig->exp_timestamp);
-            retVal += "\", \"validity\" : \"";
-            retVal += sig->validity == GPGME_VALIDITY_UNKNOWN? "unknown":
-                  sig->validity == GPGME_VALIDITY_UNDEFINED? "undefined":
-                  sig->validity == GPGME_VALIDITY_NEVER? "never":
-                  sig->validity == GPGME_VALIDITY_MARGINAL? "marginal":
-                  sig->validity == GPGME_VALIDITY_FULL? "full":
-                  sig->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
-            retVal += "\", \"status\" : ";
-            switch (gpg_err_code (sig->status))
-          	{
-          	case GPG_ERR_NO_ERROR:
-          	  r_stat = GPGME_SIG_STAT_GOOD;
-          	  retVal += "\"GOOD\"";
-          	  break;
-
-          	case GPG_ERR_BAD_SIGNATURE:
-          	  r_stat = GPGME_SIG_STAT_BAD;
-        	  retVal += "\"BAD\"";
-          	  break;
-
-          	case GPG_ERR_NO_PUBKEY:
-          	  r_stat = GPGME_SIG_STAT_NOKEY;
-          	  retVal += "\"NO_PUBKEY\"";
-          	  break;
-
-          	case GPG_ERR_NO_DATA:
-          	  r_stat = GPGME_SIG_STAT_NOSIG;
-          	  retVal += "\"NO_SIGNATURE\"";
-          	  break;
-
-          	case GPG_ERR_SIG_EXPIRED:
-          	  r_stat = GPGME_SIG_STAT_GOOD_EXP;
-          	  retVal += "\"GOOD_EXPSIG\"";
-          	  break;
-
-          	case GPG_ERR_KEY_EXPIRED:
-          	  r_stat = GPGME_SIG_STAT_GOOD_EXPKEY;
-          	  retVal += "\"GOOD_EXPKEY\"";
-          	  break;
-
-          	default:
-          	  r_stat = GPGME_SIG_STAT_ERROR;
-          	  retVal += "\"INVALID\"";
-          	  break;
-          	}
-          	retVal += " }";
-          	if (sig->next)
-          	    retVal += ",";
+            FB::VariantMap signature;
+            signature["fingerprint"] = nonnull (sig->fpr);
+            signature["timestamp"] = sig->timestamp;
+            signature["expiration"] = sig->exp_timestamp;
+            signature["validity"] = sig->validity == GPGME_VALIDITY_UNKNOWN? "unknown":
+                    sig->validity == GPGME_VALIDITY_UNDEFINED? "undefined":
+                    sig->validity == GPGME_VALIDITY_NEVER? "never":
+                    sig->validity == GPGME_VALIDITY_MARGINAL? "marginal":
+                    sig->validity == GPGME_VALIDITY_FULL? "full":
+                    sig->validity == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
+            signature["status"] = gpg_err_code (sig->status) == GPG_ERR_NO_ERROR? "GOOD":
+                    gpg_err_code (sig->status) == GPG_ERR_BAD_SIGNATURE? "BAD_SIG":
+                    gpg_err_code (sig->status) == GPG_ERR_NO_PUBKEY? "NO_PUBKEY":
+                    gpg_err_code (sig->status) == GPG_ERR_NO_DATA? "NO_SIGNATURE":
+                    gpg_err_code (sig->status) == GPG_ERR_SIG_EXPIRED? "GOOD_EXPSIG":
+                    gpg_err_code (sig->status) == GPG_ERR_KEY_EXPIRED? "GOOD_EXPKEY": "INVALID";
+            signatures[i_to_str(nsigs)] = signature;
         }
-        retVal += " }";
-    } else {
-        retVal += "}";
     }
-    retVal += " }";
+    response["signatures"] = signatures;
+    response["error"] = false;
     gpgme_data_release (in);
     gpgme_release (ctx);
 
-    return retVal;
+    return response;
 }
 
-std::string gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid,
+FB::variant gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid,
     const std::string& with_keyid, long local_only, long trust_sign, 
     long trust_level)
 {
@@ -903,12 +819,8 @@ std::string gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    json_string success_msg;
-    std::string result = success_msg.format((char *) "{ \n\
-    \"error\": \"false\",\n\
-    \"result\": \"Signed UID %d of Public Key %s with Key %s\"\n }", sign_uid, keyid.c_str(), with_keyid.c_str());
+    FB::VariantMap result;
     current_uid = i_to_str(sign_uid);
-    json_string error;
 
     /* set the default key to the with_keyid 
         set_preferences returns the orginal value (if any) of
@@ -916,143 +828,163 @@ std::string gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid
         this into a variable so we can restore the setting when
         our UID Signing operation is complete (or failed)
     */
-    std::string original_value = gpgAuthPluginAPI::set_preference("default-key", (char *) with_keyid.c_str());
+
+    /* collect the original value so we can restore when done */
+    std::string original_value = get_preference("default-key");
+    gpgAuthPluginAPI::set_preference("default-key", 
+        (char *) with_keyid.c_str());
 
     gpgme_release (ctx);
     ctx = get_gpgme_ctx();
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        result = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        result = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        result = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        result = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_op_edit (ctx, key, edit_fnc_sign, out, out);
     if (err != GPG_ERR_NO_ERROR) {
         if (err == GPGME_STATUS_ALREADY_SIGNED) {
-            result = error.format((char *) errstr, __func__, err, "The selected UID has already been signed with this key.", __LINE__, __FILE__);
+            result = get_error_map(__func__, err, "The selected UID has already been signed with this key.", __LINE__, __FILE__);
         } else {
-            result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+            result = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }
     }
 
-    /* if the original value is not the new value, reset it to the previous value */
+    /* if the original value was not empty, reset it to the previous value */
     if (strcmp ((char *) original_value.c_str(), "0")) {
         gpgAuthPluginAPI::set_preference("default-key", original_value);
     }
 
+    if (result.size())
+        return result;
+
+    FB::VariantMap response;
+    response["error"] = false;
+    response["result"] = "success";
+
     gpgme_data_release (out);
     gpgme_key_unref (key);
     gpgme_release (ctx);
-    return result;
+    return response;
 }
 
-std::string gpgAuthPluginAPI::gpgEnableKey(const std::string& keyid)
+FB::variant gpgAuthPluginAPI::gpgEnableKey(const std::string& keyid)
 {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    std::string result = "{ \"error\": \"false\", \"result\": \"Key enabled\" }";
-    json_string error;
+    FB::VariantMap response;
 
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
-    
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_edit (ctx, key, edit_fnc_enable, out, out);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_data_release (out);
     gpgme_key_unref (key);
     gpgme_release (ctx);
-    return result;
+
+    response["error"] = false;
+    response["result"] = "key enabled";
+
+    return response;
 }
 
-std::string gpgAuthPluginAPI::gpgDisableKey(const std::string& keyid)
+FB::variant gpgAuthPluginAPI::gpgDisableKey(const std::string& keyid)
 {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    std::string result = "{ \"error\": \"false\", \"result\": \"Key disabled\" }";
-    json_string error;
+    FB::VariantMap response;
 
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_op_edit (ctx, key, edit_fnc_disable, out, out);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     gpgme_data_release (out);
     gpgme_key_unref (key);
     gpgme_release (ctx);
-    return result;
+
+    response["error"] = false;
+    response["result"] = "key disabled";
+
+    return response;
 
 }
 
 
-std::string gpgAuthPluginAPI::gpgDeleteUIDSign(const std::string& keyid,
+FB::variant gpgAuthPluginAPI::gpgDeleteUIDSign(const std::string& keyid,
     long uid, long signature) {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t out = NULL;
     gpgme_key_t key = NULL;
-    std::string result = "{ \"error\": \"false\", \"result\": \"Signature deleted\" }";
-    json_string error;
+    FB::VariantMap response;
 
     current_uid = i_to_str(uid);
     current_sig = i_to_str(signature);
 
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     err = gpgme_data_new (&out);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
-    
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_edit (ctx, key, edit_fnc_delsign, out, out);
     if (err != GPG_ERR_NO_ERROR)
-        result = error.format((char *) errstr, __func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+        return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
     current_uid = "0";
     current_sig = "0";
@@ -1060,7 +992,11 @@ std::string gpgAuthPluginAPI::gpgDeleteUIDSign(const std::string& keyid,
     gpgme_data_release (out);
     gpgme_key_unref (key);
     gpgme_release (ctx);
-    return result;
+
+    response["error"] = false;
+    response["result"] = "signature deleted";
+
+    return response;
 }
 
 void gpgAuthPluginAPI::progress_cb(void *self, const char *what, int type, int current, int total)
@@ -1219,11 +1155,11 @@ FB::variant gpgAuthPluginAPI::gpgImportKey(const std::string& ascii_key) {
         import_item_map["fingerprint"] = nonnull (import->fpr);
         import_item_map["result"] = gpgme_strerror(import->result);
         import_item_map["status"] = import->status;
-        import_item_map["new_key"] = import->status & GPGME_IMPORT_NEW? 1:0;
-        import_item_map["new_uid"] = import->status & GPGME_IMPORT_UID? 1:0;
-        import_item_map["new_sig"] = import->status & GPGME_IMPORT_SIG? 1:0;
-        import_item_map["new_subkey"] = import->status & GPGME_IMPORT_SUBKEY? 1:0;
-        import_item_map["new_secret"] = import->status & GPGME_IMPORT_SECRET? 1:0;
+        import_item_map["new_key"] = import->status & GPGME_IMPORT_NEW? true : false;
+        import_item_map["new_uid"] = import->status & GPGME_IMPORT_UID? true : false;
+        import_item_map["new_sig"] = import->status & GPGME_IMPORT_SIG? true : false;
+        import_item_map["new_subkey"] = import->status & GPGME_IMPORT_SUBKEY? true : false;
+        import_item_map["new_secret"] = import->status & GPGME_IMPORT_SECRET? true : false;
 		imports_map[i_to_str(nimports)] = import_item_map;
 	}
     status["imports"] = imports_map;

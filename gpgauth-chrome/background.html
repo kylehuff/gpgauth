@@ -396,11 +396,7 @@ var gpgauthBackground = {
         }
 
         cipher = unescape(server_response).replace(/\\\+/g, ' ').replace(/\\./g, '.');
-        try {
-            plaintext = JSON.parse(plugin.gpgDecrypt(cipher));
-        } catch(err) {
-            plaintext = {};
-        }
+        plaintext = plugin.gpgDecrypt(cipher)
         console.log('plaintext: ', plaintext);
 
         var random_re = new RegExp("^gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))[\|]([0-9]+)[\|]([a-z0-9]+)[\|]gpgauth(([v][0-9][.][0-9]{1,2})([.][0-9]{1,3}))$", "i");
@@ -457,17 +453,9 @@ var gpgauthBackground = {
                     break;
                 }
             }
-<!--            for (key in domain_keylist) { domain_key = key; break; }-->
             for (privateKeyId in private_keylist) {
-                if (!private_keylist[privateKeyId].keystatus && 
-                    privateKeyId in gpgauth_prefs.enabled_keys.get()){
-                    pkey_status = 0;
-    <!--                pkey_status += parseInt(keylist[domain_key].expired)-->
-    <!--                pkey_status += parseInt(keylist[domain_key].disabled)-->
-    <!--                pkey_status += parseInt(keylist[domain_key].invalid)-->
-    <!--                pkey_status += parseInt(keylist[domain_key].revoked)-->
-                    GAUTrust = (keylist[domain_key].uids[0].signatures.length < 1) ? '?' : plugin.verifyDomainKey(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId);
-<!--                    console.log(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId, GAUTrust);-->
+                if (!private_keylist[privateKeyId].keystatus){
+                    GAUTrust = plugin.verifyDomainKey(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId);
                     usable_domain_keyid = domain_key;
                     usable_private_keyid = privateKeyId;
                     usable_domain_key_trust = GAUTrust;
@@ -506,18 +494,12 @@ var gpgauthBackground = {
             var token = this.generate_random_token();
             this.gpg_elements[domain]['token_for_server'] = token;
             var enc_result = plugin.gpgEncrypt(token, key_results['domain_key'], '', '');
-            // Attempt to extract the relevant parts returned from gpgEncrypt
-            try {
-                enc_result = JSON.parse(enc_result)
-                if (enc_result['error']) {
-                    console.log("there was a problem", enc_result);
-                }
-            } catch(err) {
-                gpgauthBackground.enc = enc_result;
-                console.log(err, enc_result);
-                if (enc_result.substr(0,5) == "-----")
-                    encrypted_token = enc_result;
+            if (enc_result['error']) {
+                encrypted_token = {'valid': false, 'errorno': enc_result['gpgme_err_code'], 'error': enc_result['error_string']};
+            } else {
+                encrypted_token = enc_result['data'];
             }
+            console.log(encrypted_token);
             this.gpg_elements[domain]['server_validated'] = false;
             var server_response = gpgauthBackground.doServerTokenTests(domain, encrypted_token);
             return this.gpg_elements[domain];

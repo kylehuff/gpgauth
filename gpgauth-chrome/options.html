@@ -182,13 +182,13 @@ $(function(){
         var prev_key = null;
         for (key in pkeylist){
             keyobj = document.createElement('div');
-            if (parseInt(keylist[key].disabled) == 1)
+            if (keylist[key].disabled)
                 keyobj.className = 'disabled';
-            if (parseInt(keylist[key].expired) == 1)
+            if (keylist[key].expired)
                 keyobj.className = 'invalid-key';
-            if (parseInt(keylist[key].invalid) == 1)
+            if (keylist[key].invalid)
                 keyobj.className = 'invalid-key';
-            if (parseInt(keylist[key].revoked) == 1)
+            if (keylist[key].revoked)
                 $(keyobj).addClass('invalid-key');
             keyobj.className += ' primary_key';
             enabled = (key in enabled_keys) ? " checked" : "";
@@ -209,7 +209,7 @@ $(function(){
             created_date = new Date(pkeylist[key].subkeys[0].created * 1000).toJSON().substring(0, 10);
             expiry = (pkeylist[key].subkeys[0].expires == 0) ? 'Never' : new Date(pkeylist[key].subkeys[0].expires * 1000).toJSON();
             if (pkeylist[key].subkeys[0].expires > 0) {
-                expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(pkeylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
+                expiry = (Math.round(new Date().getTime()/1000.0) > pkeylist[key].subkeys[0].expires) ? "Expired" : expiry.substring(0, 10);
             }
             uidlist.innerHTML = "<div class='keydetails'><span class='dh'>Key Details</span><hr/\>" +
                 "<span><h4>KeyID:</h4> 0x" + key.substr(-8) + "</span><span><h4>Key Created:</h4> " + created_date + "</span><span><h4>Expires:</h4> " + expiry + "</span><span><h4>UIDs:</h4> " + keylist[key].nuids + "</span><br/\>" +
@@ -221,7 +221,7 @@ $(function(){
                 uidobj = document.createElement('div');
                 uidobj.setAttribute('class', 'uid');
                 uidobj.setAttribute('id', key + '-' + uid);
-                if (parseInt(keylist[key].expired) == 1 || parseInt(keylist[key].uids[uid].revoked))
+                if (keylist[key].expired || keylist[key].uids[uid].revoked)
                     uidobj.className += ' invalid-key';
                 email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
                     "  - (no email address provided)";
@@ -231,7 +231,7 @@ $(function(){
                 nd_trust = false;
                 uidobjbody = document.createElement('div');
                 uidobjbody.innerHTML = "<div class='uid-options'><input class='uid-option-button' id='sign-" + key + "-" + uid + "' type='button' value='Sign this UID'/\></div><br/\>";
-                if (parseInt(keylist[key].uids[uid].revoked))
+                if (keylist[key].uids[uid].revoked)
                     $(uidobjbody).find('.uid-option-button').addClass('uid-revoked');
                 for (sig in keylist[key].uids[uid].signatures) {
                     sig_keyid = keylist[key].uids[uid].signatures[sig]
@@ -362,19 +362,19 @@ $(function(){
             }
             status = "Valid";
             keyobj = document.createElement('div');
-            if (parseInt(keylist[key].disabled) == 1) {
+            if (keylist[key].disabled) {
                 $(keyobj).addClass('disabled');
                 status = "Disabled";
             }
-            if (parseInt(keylist[key].expired) == 1) {
+            if (keylist[key].expired) {
                 $(keyobj).addClass('invalid-key');
                 status = "Expired";
             }
-            if (parseInt(keylist[key].invalid) == 1) {
+            if (keylist[key].invalid) {
                 $(keyobj).addClass('invalid-key');
                 status = "Invalid";
             }
-            if (parseInt(keylist[key].revoked) == 1) {
+            if (keylist[key].revoked) {
                 $(keyobj).addClass('invalid-key');
                 status = "Revoked";
             }
@@ -395,9 +395,9 @@ $(function(){
             created_date = new Date(keylist[key].subkeys[0].created * 1000).toJSON().substring(0, 10);
             expiry = (keylist[key].subkeys[0].expires == 0) ? 'Never' : new Date(keylist[key].subkeys[0].expires * 1000).toJSON();
             if (keylist[key].subkeys[0].expires > 0) {
-                expiry = (Math.round(new Date().getTime()/1000.0) > parseInt(keylist[key].subkeys[0].expires)) ? "Expired" : expiry.substring(0, 10);
+                expiry = (Math.round(new Date().getTime()/1000.0) > keylist[key].subkeys[0].expires) ? "Expired" : expiry.substring(0, 10);
             }
-            if (parseInt(keylist[key].disabled) == 1) {
+            if (keylist[key].disabled) {
                 key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='enable-" + key + "' type='button' value='Enable this Key'/\></div>";
             } else {
                 key_option_button = "<div class='uid-options' style='font-size:12px;'><input class='key-option-button' id='disable-" + key + "' type='button' value='Disable this Key'/\></div>";
@@ -415,7 +415,7 @@ $(function(){
                 uidobj.setAttribute('id', key + '-' + uid);
                 if (key == openKey && uid == openUID)
                     $(uidobj).addClass('open_uid');
-                if (parseInt(keylist[key].expired) == 1 || parseInt(keylist[key].uids[uid].revoked))
+                if (keylist[key].expired || keylist[key].uids[uid].revoked)
                     uidobj.className += ' invalid-key';
                 email = (keylist[key].uids[uid].email.length > 1) ? "  -  &lt;" + keylist[key].uids[uid].email + "&gt;" :
                     "  - (no email address provided)";
@@ -424,7 +424,7 @@ $(function(){
                 nd_trust = false;
                 uidobjbody = document.createElement('div');
                 uidobjbody.innerHTML = "<div class='uid-options'><input class='uid-option-button' id='sign-" + key + "-" + uid + "' type='button' value='Sign this UID'/\></div><br/\>";
-                if (parseInt(keylist[key].uids[uid].revoked))
+                if (keylist[key].uids[uid].revoked)
                     $(uidobjbody).find('.uid-option-button').addClass('uid-revoked');
                 for (sig in keylist[key].uids[uid].signatures) {
                     sig_keyid = keylist[key].uids[uid].signatures[sig]
@@ -546,7 +546,7 @@ $(function(){
         'label': (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true') ? 'Enabled' : 'Disabled'
         }).click(function(e) {
             (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true') ? window.ext.gpgauth_prefs.gpgauth_enabled.set(false) : ext.gpgauth_prefs.gpgauth_enabled.set(true);
-            status = (window.ext.gpgauth_prefs.gpgauth_enabled.get() == "true") ? 'Enabled' : 'Disabled'
+            status = (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true') ? 'Enabled' : 'Disabled'
             $(this).button('option', 'label', status);
             this.checked = (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true');
             $(this).button('refresh');
@@ -574,8 +574,8 @@ $(function(){
                     break;
                 }
             }
-            validity = (parseInt(keylist[key].uids[uid].revoked)) ? 'revoked' : keylist[key].uids[uid].validity;
-            validity += (parseInt(keylist[key].uids[uid].invalid)) ? ' | invalid' : '';
+            validity = (keylist[key].uids[uid].revoked) ? 'revoked' : keylist[key].uids[uid].validity;
+            validity += (keylist[key].uids[uid].invalid) ? ' | invalid' : '';
             $(uidobj).find('.trust')[0].innerHTML = validity + ' | gpgAuth trust: ' + GAUTrust;
         });
         $("#dialog-modal:ui-dialog").dialog( "destroy" );

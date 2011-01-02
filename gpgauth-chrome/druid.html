@@ -182,7 +182,23 @@ body{
                 function doSystemCheck() {
                     // check for gpgconf functionality
                     // check the config for use-agent directive
-                    console.log("doSystemCheck called");
+                    bg = chrome.extension.getBackgroundPage();
+                    if (bg.plugin && bg.plugin.valid) {
+                        console.log("The NPAPI Plugin is valid.");
+                        gpg_status = bg.plugin.gpg_status;
+                        if (gpg_status.agent_info) {
+                            console.log("It appears you have a key-agent configured");
+                        } else {
+                            console.log("You do not appear to have a key-agent configured. A working key-agent is required");
+                        }
+                        if (gpg_status.gpgconf_detected) {
+                            console.log("gpgconf was detected, you can use the signature methods");
+                        } else {
+                            console.log("gpgconf does not appear to be installed; You will not be able to create signatures");
+                        }
+                    } else {
+                        console.log("There was a problem loading the NPAPI Plugin");
+                    }
                 }
             });
             </script>
