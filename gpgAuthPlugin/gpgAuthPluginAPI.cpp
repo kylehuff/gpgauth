@@ -84,20 +84,6 @@ std::string i_to_str(const int &number)
    return oss.str();
 }
 
-/* An inline method to escape single and double quotes 
-    from the passed string object */
-inline
-void sanitize (std::string& str)
-    {
-    for (unsigned int i = 0; i < str.length(); i++)
-    {
-      if (str[i] =='\'' || str[i]=='\"')
-      {
-        str.replace (i,1,"\\\\'");
-        i += 3;
-      }
-    }
-}
 
 gpgAuthPluginAPI::gpgAuthPluginAPI(gpgAuthPluginPtr plugin, FB::BrowserHostPtr host) : m_plugin(plugin), m_host(host)
 {
@@ -357,7 +343,7 @@ FB::variant gpgAuthPluginAPI::getPrivateKeyList(){
     This method just calls gpgauth.getKeyList with a domain name
         as the parameter
 */
-FB::variant gpgAuthPluginAPI::getDomainKey(const std::string &domain){
+FB::variant gpgAuthPluginAPI::getDomainKey(const std::string& domain){
     return gpgAuthPluginAPI::getKeyList(domain, 0);
 }
 
@@ -401,9 +387,9 @@ FB::variant gpgAuthPluginAPI::getDomainKey(const std::string &domain){
             trusts and has signed, as defined by the user
             preference of "advnaced.trust_model")
     */
-int gpgAuthPluginAPI::verifyDomainKey(std::string domain, 
-        std::string domain_key_fpr, long uid_idx,
-        std::string required_sig_keyid)
+int gpgAuthPluginAPI::verifyDomainKey(const std::string& domain, 
+        const std::string& domain_key_fpr, long uid_idx,
+        const std::string& required_sig_keyid)
 {
     int nuids;
     int nsigs;
@@ -561,7 +547,7 @@ std::string gpgAuthPluginAPI::gpgconf_detected() {
     return cfg_present;
 }
 
-std::string gpgAuthPluginAPI::get_preference(std::string preference) {
+std::string gpgAuthPluginAPI::get_preference(const std::string& preference) {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_conf_comp_t conf, comp;
@@ -609,7 +595,7 @@ std::string gpgAuthPluginAPI::get_preference(std::string preference) {
 
 }
 
-std::string gpgAuthPluginAPI::set_preference(std::string preference, std::string pref_value) {
+std::string gpgAuthPluginAPI::set_preference(const std::string& preference, const std::string& pref_value) {
 	gpgme_error_t err;
 	json_string error;
 	gpgme_protocol_t proto = GPGME_PROTOCOL_OpenPGP;
@@ -698,9 +684,9 @@ std::string gpgAuthPluginAPI::set_preference(std::string preference, std::string
 /* NOTE: Normally, we should call this without a value for
     encrypt_from_key to keep the anonymity of the user until after the 
     host has been validated */
-std::string gpgAuthPluginAPI::gpgEncrypt(std::string data, 
-        std::string enc_to_keyid, std::string enc_from_keyid,
-        std::string sign)
+std::string gpgAuthPluginAPI::gpgEncrypt(const std::string& data, 
+        const std::string& enc_to_keyid, const std::string& enc_from_keyid,
+        const std::string& sign)
 {
     /* declare variables */
     gpgme_ctx_t ctx = get_gpgme_ctx();
@@ -769,7 +755,7 @@ std::string gpgAuthPluginAPI::gpgEncrypt(std::string data,
     return out_buf;
 }
 
-std::string gpgAuthPluginAPI::gpgDecrypt(std::string data)
+std::string gpgAuthPluginAPI::gpgDecrypt(const std::string& data)
 {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
@@ -909,8 +895,8 @@ std::string gpgAuthPluginAPI::gpgDecrypt(std::string data)
     return retVal;
 }
 
-std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
-    std::string with_keyid, long local_only, long trust_sign, 
+std::string gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid,
+    const std::string& with_keyid, long local_only, long trust_sign, 
     long trust_level)
 {
     gpgme_ctx_t ctx = get_gpgme_ctx();
@@ -970,7 +956,7 @@ std::string gpgAuthPluginAPI::gpgSignUID(std::string keyid, long sign_uid,
     return result;
 }
 
-std::string gpgAuthPluginAPI::gpgEnableKey(std::string keyid)
+std::string gpgAuthPluginAPI::gpgEnableKey(const std::string& keyid)
 {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
@@ -1003,7 +989,7 @@ std::string gpgAuthPluginAPI::gpgEnableKey(std::string keyid)
     return result;
 }
 
-std::string gpgAuthPluginAPI::gpgDisableKey(std::string keyid)
+std::string gpgAuthPluginAPI::gpgDisableKey(const std::string& keyid)
 {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
@@ -1038,7 +1024,7 @@ std::string gpgAuthPluginAPI::gpgDisableKey(std::string keyid)
 }
 
 
-std::string gpgAuthPluginAPI::gpgDeleteUIDSign(std::string keyid,
+std::string gpgAuthPluginAPI::gpgDeleteUIDSign(const std::string& keyid,
     long uid, long signature) {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
@@ -1091,10 +1077,10 @@ void gpgAuthPluginAPI::progress_cb(void *self, const char *what, int type, int c
     }
 }
 
-std::string gpgAuthPluginAPI::gpgGenKeyWorker(std::string key_type, std::string key_length, 
-        std::string subkey_type, std::string subkey_length, std::string name_real, 
-        std::string name_comment, std::string name_email, std::string expire_date, 
-        std::string passphrase, void* APIObj,
+std::string gpgAuthPluginAPI::gpgGenKeyWorker(const std::string& key_type, const std::string& key_length, 
+        const std::string& subkey_type, const std::string& subkey_length, const std::string& name_real, 
+        const std::string& name_comment, const std::string& name_email, const std::string& expire_date, 
+        const std::string& passphrase, void* APIObj,
         void(*cb_status)(
             void *self,
             const char *what,
@@ -1169,11 +1155,11 @@ void gpgAuthPluginAPI::threaded_gpgGenKey(genKeyParams params)
 
 }
 
-std::string gpgAuthPluginAPI::gpgGenKey(std::string key_type, 
-        std::string key_length, std::string subkey_type, 
-        std::string subkey_length, std::string name_real,
-        std::string name_comment, std::string name_email, 
-        std::string expire_date, std::string passphrase)
+std::string gpgAuthPluginAPI::gpgGenKey(const std::string& key_type, 
+        const std::string& key_length, const std::string& subkey_type, 
+        const std::string& subkey_length, const std::string& name_real,
+        const std::string& name_comment, const std::string& name_email, 
+        const std::string& expire_date, const std::string& passphrase)
 {
 
     genKeyParams params;
@@ -1197,7 +1183,7 @@ std::string gpgAuthPluginAPI::gpgGenKey(std::string key_type,
     return "queued";
 }
 
-FB::variant gpgAuthPluginAPI::gpgImportKey(std::string ascii_key) {
+FB::variant gpgAuthPluginAPI::gpgImportKey(const std::string& ascii_key) {
     gpgme_ctx_t ctx = get_gpgme_ctx();
     gpgme_error_t err;
     gpgme_data_t key_buf;

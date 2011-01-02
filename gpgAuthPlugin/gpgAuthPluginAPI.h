@@ -43,29 +43,29 @@ public:
     FB::variant getPublicKeyList();
     FB::variant getPrivateKeyList();
     FB::variant getDomainKey(const std::string& domain);
-    int verifyDomainKey(std::string domain, std::string domain_key_fpr, 
-        long uid_idx, std::string required_sig_keyid);
+    int verifyDomainKey(const std::string& domain, const std::string& domain_key_fpr, 
+        long uid_idx, const std::string& required_sig_keyid);
 
-    std::string get_preference(std::string preference);
-    std::string set_preference(std::string preference, std::string pref_value);
+    std::string get_preference(const std::string& preference);
+    std::string set_preference(const std::string& preference, const std::string& pref_value);
 
-    std::string gpgEncrypt(std::string data, std::string enc_to_keyid, 
-        std::string enc_from_keyid=NULL, std::string sign=NULL);
-    std::string gpgDecrypt(std::string data);
-    std::string gpgSignUID(std::string keyid, long uid,
-        std::string with_keyid, long local_only=NULL, long trust_sign=NULL, 
+    std::string gpgEncrypt(const std::string& data, const std::string& enc_to_keyid, 
+        const std::string& enc_from_keyid=NULL, const std::string& sign=NULL);
+    std::string gpgDecrypt(const std::string& data);
+    std::string gpgSignUID(const std::string& keyid, long uid,
+        const std::string& with_keyid, long local_only=NULL, long trust_sign=NULL, 
         long trust_level=NULL);
-    std::string gpgDeleteUIDSign(std::string keyid, long sign_uid,
+    std::string gpgDeleteUIDSign(const std::string& keyid, long sign_uid,
         long signature);
-    std::string gpgEnableKey(std::string keyid);
-    std::string gpgDisableKey(std::string keyid);
-    std::string gpgGenKey(std::string key_type, std::string key_length,
-            std::string subkey_type, std::string subkey_length,
-            std::string name_real, std::string name_comment,
-            std::string name_email, std::string expire_date,
-            std::string passphrase);
+    std::string gpgEnableKey(const std::string& keyid);
+    std::string gpgDisableKey(const std::string& keyid);
+    std::string gpgGenKey(const std::string& key_type, const std::string& key_length,
+            const std::string& subkey_type, const std::string& subkey_length,
+            const std::string& name_real, const std::string& name_comment,
+            const std::string& name_email, const std::string& expire_date,
+            const std::string& passphrase);
     void threaded_gpgGenKey(genKeyParams params);
-    FB::variant gpgImportKey(std::string ascii_key);
+    FB::variant gpgImportKey(const std::string& ascii_key);
 
     std::string get_version();
     std::string gpgconf_detected();
@@ -75,10 +75,10 @@ public:
         int type, int current, int total
     );
 
-    std::string gpgGenKeyWorker(std::string key_type, std::string key_length, 
-        std::string subkey_type, std::string subkey_length, std::string name_real,
-        std::string name_comment, std::string name_email, std::string expire_date,
-        std::string passphrase, void* APIObj, void(*cb_status)(void *self,
+    std::string gpgGenKeyWorker(const std::string& key_type, const std::string& key_length, 
+        const std::string& subkey_type, const std::string& subkey_length, const std::string& name_real,
+        const std::string& name_comment, const std::string& name_email, const std::string& expire_date,
+        const std::string& passphrase, void* APIObj, void(*cb_status)(void *self,
                                             const char *what,
                                             int type,
                                             int current,
