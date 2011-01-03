@@ -184,35 +184,79 @@ body{
                     // check the config for use-agent directive
                     bg = chrome.extension.getBackgroundPage();
                     if (bg.plugin && bg.plugin.valid) {
-                        console.log("The NPAPI Plugin is valid.");
                         gpg_status = bg.plugin.gpg_status;
-                        if (gpg_status.agent_info) {
-                            console.log("It appears you have a key-agent configured");
-                        } else {
-                            console.log("You do not appear to have a key-agent configured. A working key-agent is required");
+                        errors = {
+                            'NPAPI' : { 'error' : false, 'detail': "The NPAPI Plugin is valid." },
+                            'libgpgme' : { 'error' : false,'detail' : "It appears you have a working version of libgpgme; we have detected version: " + gpg_status.gpgme_version },
+                            'gpg_agent' : { 'error' : false, 'detail' : "It appears you have a key-agent configured" },
+                            'gpgconf' : { 'error' : false, 'detail' : "gpgconf was detected; you can use the signature methods" },
+                        };
+                        console.log(errors['NPAPI']['detail']);
+                        if (!gpg_status.gpgme_valid) {
+                            errors['libgpgme'] = {
+                                'error': true,
+                                'detail': "You do not appear to have libgpgme; libgpgme is required.",
+                                'link' : "this should be a link to get some help for this..",
+                            }
                         }
-                        if (gpg_status.gpgconf_detected) {
-                            console.log("gpgconf was detected, you can use the signature methods");
-                        } else {
-                            console.log("gpgconf does not appear to be installed; You will not be able to create signatures");
+                        console.log(errors['libgpgme']['detail']);
+
+                        if (!gpg_status.gpg_agent_info) {
+                            errors['gpg_agent'] = {
+                                'error': true,
+                                'detail': "You do not appear to have a key-agent configured. A working key-agent is required",
+                                'link' : "this should be a link to get some help for this..",
+                            }
                         }
+                        console.log(errors['gpg_agent']['detail']);
+
+                        if (!gpg_status.gpgconf_detected) {
+                            errors['gpgconf'] = {
+                                'error': true,
+                                'detail': "gpgconf does not appear to be installed; You will not be able to create signatures",
+                                'link' : "this should be a link to get some help for this..",
+                            }
+                        }
+                        console.log(errors['gpgconf']['detail']);
+
                     } else {
-                        console.log("There was a problem loading the NPAPI Plugin");
+                        errors["NPAPI"] = {
+                            'error': true,
+                            'detail': "There was a problem loading the plugin; the issue might be caused by the plugin being incompatibly compiled for this architechture.",
+                            'link' : "this should be a link..",
+                        }
+                        console.log(errors['NPAPI']['detail']);
                     }
+                }
+                for (error in errors) {
+                    if (errors[error]['error']) {
+                        document.getElementById('system-good').style.display = 'none';
+                        document.getElementById('system-error').style.display = 'inline';
+                    }
+                    item_result = "<div class=\"trust-level-desc\">" +
+                            "<span class=\"system-check\" style=\"margin-right:8px;\"><img src='images/";
+                    if (errors[error]['error']) {
+                        item_result += 'cancel.png';
+                    } else {
+                        item_result += 'check.png';
+                    }
+                    item_result += "'></span>" +
+                            "<span class=\"trust-desc\">" + errors[error]['detail'] + "</span>";
+                    document.getElementById('status_result').innerHTML += item_result;
                 }
             });
             </script>
             <div class="bound-box">
                 <p>Please review the list of requirements below and ensure your system is setup/configured to use gpgAuth authentication.</p>
                 <div style="width:100%; float:left;text-align: center;">
-                    <div class="trust-level-sel" style="min-width: 600px; text-align:left;">
-                        <div class="trust-level-desc" id='system-0'>
+                    <div id="status_result" class="trust-level-sel" style="min-width: 600px; text-align:left;">
+                        <div class="trust-level-desc" id='system-good'>
                             <span class="system-check" style="margin-right:8px;"><img src='images/check.png'></span>
-                            <span class="trust-desc" style="font-size:16px;">Your system appears to be configured correctly, you should be able to use the gpgAuth authentication mechanism</span>
+                            <span class="trust-desc" style="font-size:16px;">Your system appears to be configured correctly, you should be able to use gpgAuth authentication</span>
                         </div>
-                        <div class="trust-level-desc" id='system-1' style="display:none;">
+                        <div class="trust-level-desc" id='system-error' style="display:none;">
                             <span class="system-check" style="margin-right:8px;"><img src='images/cancel.png'></span>
-                            <span class="trust-desc">Something other installed: </span>
+                            <span class="trust-desc">There is a problem with your configuration</span>
                         </div>
                     </div>
                 </div>
