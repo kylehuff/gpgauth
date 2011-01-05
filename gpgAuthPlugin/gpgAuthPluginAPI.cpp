@@ -852,6 +852,7 @@ FB::variant gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid
     if (err != GPG_ERR_NO_ERROR)
         result = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
 
+    step = 0;
     err = gpgme_op_edit (ctx, key, edit_fnc_sign, out, out);
     if (err != GPG_ERR_NO_ERROR) {
         if (err == GPGME_STATUS_ALREADY_SIGNED) {
@@ -866,9 +867,6 @@ FB::variant gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid
         gpgAuthPluginAPI::set_preference("default-key", original_value);
     }
 
-    if (result.size())
-        return result;
-
     FB::VariantMap response;
     response["error"] = false;
     response["result"] = "success";
@@ -876,6 +874,10 @@ FB::variant gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid
     gpgme_data_release (out);
     gpgme_key_unref (key);
     gpgme_release (ctx);
+
+    if (result.size())
+        return result;
+
     return response;
 }
 
@@ -890,9 +892,11 @@ FB::variant gpgAuthPluginAPI::gpgEnableKey(const std::string& keyid)
     err = gpgme_op_keylist_start (ctx, keyid.c_str(), 0);
     if (err != GPG_ERR_NO_ERROR)
         return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_next (ctx, &key);
     if (err != GPG_ERR_NO_ERROR)
         return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
+
     err = gpgme_op_keylist_end (ctx);
     if (err != GPG_ERR_NO_ERROR)
         return get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);

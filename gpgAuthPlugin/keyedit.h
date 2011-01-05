@@ -13,6 +13,8 @@ std::string current_uid;
 std::string current_sig;
 // Used as iter count for current signature index
 static int signature_iter = 1;
+// Used to keep track of the current edit iteration
+static int step = 0;
 
 gpgme_error_t
 edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int fd)
@@ -27,13 +29,8 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
     int error = GPG_ERR_NO_ERROR;
     static std::string prior_response = "";
 
-#ifdef DEBUG
-    fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
-#endif
-
     if (fd >= 0) {
         if (!strcmp (args, "keyedit.prompt")) {
-            static int step = 0;
 
             switch (step) {
                 case 0:
@@ -51,6 +48,7 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
                 default:
                     if (step == 3 && prior_response == "tlsign")
                         error = GPGME_STATUS_ALREADY_SIGNED; // Already signed with this key..
+                    prior_response = "";
                     step = 0;
                     response = (char *) "quit";
                     break;
@@ -74,9 +72,6 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
     }
 
     if (response) {
-#ifdef DEBUG
-        fprintf (stdout, "[-- Sending Response: %s --]\n", response);
-#endif
         prior_response = response;
 #ifdef HAVE_W32_SYSTEM
         DWORD written;
@@ -87,7 +82,6 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
         write (fd, "\n", 1);
 #endif
     }
-    args = "";
     return error;
 }
 
@@ -100,10 +94,6 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
         current_uid = <the index of the UID which has the signature you wish to delete>
         current_sig = <the index of signature you wish to delete>  */
     char *response = NULL;
-
-#ifdef DEBUG
-    fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
-#endif
 
     if (fd >= 0) {
         if (!strcmp (args, "keyedit.prompt")) {
@@ -151,9 +141,6 @@ edit_fnc_delsign (void *opaque, gpgme_status_code_t status, const char *args, in
     }
 
     if (response) {
-#ifdef DEBUG
-        fprintf (stdout, "[-- Sending Response: %s --]\n", response);
-#endif
 #ifdef HAVE_W32_SYSTEM
         DWORD written;
         WriteFile ((HANDLE) fd, response, strlen (response), &written, 0);
@@ -174,10 +161,6 @@ edit_fnc_disable (void *opaque, gpgme_status_code_t status, const char *args, in
         current_uid = <the index of the UID which has the signature you wish to delete>
         current_sig = <the index of signature you wish to delete>  */
     char *response = NULL;
-
-#ifdef DEBUG
-    fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
-#endif
 
     if (fd >= 0) {
         if (!strcmp (args, "keyedit.prompt")) {
@@ -224,10 +207,6 @@ edit_fnc_enable (void *opaque, gpgme_status_code_t status, const char *args, int
 {
   /* this enableds a disabled key  */
     char *response = NULL;
-
-#ifdef DEBUG
-    fprintf (stdout, "[-- Code: %i, %s --]\n", status, args);
-#endif
 
     if (fd >= 0) {
         if (!strcmp (args, "keyedit.prompt")) {

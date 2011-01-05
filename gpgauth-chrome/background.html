@@ -51,39 +51,48 @@ var gpgauth_prefs = {
     },
     enabled_keys: {
         get: function() {
-            keys_tmp = {};
+            keys_arr = [];
+            if (window.localStorage.getItem('enabled_keys')) {
+                keys_arr = window.localStorage.getItem('enabled_keys').split(',');
+            }
+            return keys_arr;
+        },
+        add: function(keyid) {
+            keys_arr = this.get();
+            keys_arr.push(keyid);
+            window.localStorage.setItem('enabled_keys', keys_arr);
+        },
+        remove: function(keyid) {
+            console.log("remove request..");
+            keys_tmp = this.get();
+            keys_arr = [];
+            for (key in keys_tmp) {
+                if (keys_tmp[key] != keyid) {
+                    keys_arr.push(keys_tmp[key]);
+                }
+            }
+            window.localStorage.setItem('enabled_keys', keys_arr);
+        },
+        clear: function(){
+            window.localStorage.setItem('enabled_keys', '');
+        },
+        length: function(){
+            keys_tmp = [];
             if (window.localStorage.getItem('enabled_keys')) {
                 store_value = window.localStorage.getItem('enabled_keys').split(',');
                 for (key in store_value) {
-                    keys_tmp[store_value[key]] = 1;
+                    keys_tmp.push(store_value[key]);
                 }
             }
-            return keys_tmp;
+            return keys_tmp.length + 1;
         },
-        add: function(keyid) {
-            keys_arr = {};
-            for (key in this.get()) {
-                keys_arr[key] = 1;
+        has: function(keyid){
+            key_arr = this.get();
+            for (var i = 0; i < this.length(); i++) {
+                if (key_arr[i] == keyid)
+                    return true;
             }
-            keys_arr[keyid] = 1;
-            keys_tmp = [];
-            for (key in keys_arr) {
-                keys_tmp[keys_tmp.length] = key;
-            }
-            window.localStorage.setItem('enabled_keys', keys_tmp);
-        },
-        remove: function(keyid) {
-            keys_arr = {};
-            for (key in this.get()) {
-                if (key != keyid) {
-                    keys_arr[key] = 1;
-                }
-            }
-            keys_tmp = [];
-            for (key in keys_arr) {
-                keys_tmp[keys_tmp.length] = key;
-            }
-            window.localStorage.setItem('enabled_keys', keys_tmp);
+            return false;
         },
     },
     default_key: {
@@ -120,8 +129,9 @@ var gpgauthBackground = {
         /* Check to make sure all of the enabled_keys are private keys 
             this would occur if the key was enabled and then the secret key was deleted. */
         secret_keys = plugin.getPrivateKeyList();
-        for (key in gpgauth_prefs.enabled_keys.get()){
-            if (key in secret_keys == false){
+        enabled_keys = gpgauth_prefs.enabled_keys.get();
+        for (key in enabled_keys){
+            if (enabled_keys[key] in secret_keys == false){
                 gpgauth_prefs.enabled_keys.remove(key);
             }
         }

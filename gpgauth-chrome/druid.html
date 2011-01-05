@@ -165,9 +165,9 @@ body{
 <div id="tabs">
     <ul>
         <li><a id='tab-1-btn' href="#tabs-1">Step 1: System Check</a></li>
-        <li><a href="#tabs-2">Step 2: Trust</a></li>
-        <li><a href="#tabs-3">Step 3: Your Keys</a></li>
-        <li><a href="#tabs-4">Step 4: Provider Keys</a></li>
+        <li><a id='tab-2-btn' href="#tabs-2">Step 2: Trust</a></li>
+        <li><a id='tab-3-btn' href="#tabs-3">Step 3: Your Keys</a></li>
+        <li><a id='tab-4-btn' href="#tabs-4">Step 4: Provider Keys</a></li>
     </ul>
     <div id="tabs-1">
         <div id="step-1" style="text-align: center;">
@@ -187,7 +187,7 @@ body{
                         gpg_status = bg.plugin.gpg_status;
                         errors = {
                             'NPAPI' : { 'error' : false, 'detail': "The NPAPI Plugin is valid." },
-                            'libgpgme' : { 'error' : false,'detail' : "It appears you have a working version of libgpgme; we have detected version: " + gpg_status.gpgme_version },
+                            'libgpgme' : { 'error' : false, 'detail' : "It appears you have a working version of libgpgme; we have detected version: " + gpg_status.gpgme_version },
                             'gpg_agent' : { 'error' : false, 'detail' : "It appears you have a key-agent configured" },
                             'gpgconf' : { 'error' : false, 'detail' : "gpgconf was detected; you can use the signature methods" },
                         };
@@ -220,18 +220,20 @@ body{
                         console.log(errors['gpgconf']['detail']);
 
                     } else {
-                        errors["NPAPI"] = {
-                            'error': true,
-                            'detail': "There was a problem loading the plugin; the issue might be caused by the plugin being incompatibly compiled for this architechture.",
-                            'link' : "this should be a link..",
-                        }
+                        errors = {
+				        "NPAPI" : {
+	                            'error': true,
+	                            'detail': "There was a problem loading the plugin; the issue might be caused by the plugin being incompatibly compiled for this architechture.",
+	                            'link' : "this should be a link..",
+	                        }
+			            }
                         console.log(errors['NPAPI']['detail']);
                     }
                 }
                 for (error in errors) {
                     if (errors[error]['error']) {
                         document.getElementById('system-good').style.display = 'none';
-                        document.getElementById('system-error').style.display = 'inline';
+                        document.getElementById('system-error').style.display = 'block';
                     }
                     item_result = "<div class=\"trust-level-desc\">" +
                             "<span class=\"system-check\" style=\"margin-right:8px;\"><img src='images/";
@@ -334,7 +336,7 @@ body{
                 <iframe id="options_frame" style="width: 100%; min-height: 500px; height:80%; border: none;">Loading...</iframe>
                 <script>
                     $(function(){
-                        $('#personal-key-desc').ready(function(){
+                        $('#tab-3-btn').click(function(){
                             $("#options_frame").attr("src", chrome.extension.getURL('options.html') + "?tab=1");
                         });
                         $("#options_frame").load(function(){
