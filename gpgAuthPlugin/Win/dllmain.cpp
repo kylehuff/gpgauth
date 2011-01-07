@@ -9,7 +9,7 @@
 
 
 #include "Win/win_common.h"
-#include "resource.h"
+#include "global/resource.h"
 #include "axmain.h"
 #include "axutil.h"
 

@@ -10,20 +10,34 @@
 
 var ext = chrome.extension.getBackgroundPage();
 $(function(){
-    Array.prototype.indexOf = function(obj) {
-        for (var i = 0; i < this.length; i++) {
-            if (this[i] == obj)
-                return i;
-        }
-        return -1;
-    }
-
-    Array.prototype.has = function(obj) {
-        return this.indexOf(obj) >= 0;
-    }
-
     $('#enable-gpgauth-check')[0].checked = 
         (window.ext.gpgauth_prefs.gpgauth_enabled.get() == 'true');
+
+    $('#tab-2-btn').click(function(){
+        if (!window.private_built) {
+            $("#dialog-modal").dialog({
+                height: 140,
+                modal: true,
+                autoOpen: true,
+                title: "Building Keylist"
+            }).children()[0].innerHTML = "Please wait while build the keylist.";
+            setTimeout( function(){ buildKeylist(keylist=null, 'private'); $("#dialog-modal").dialog('destroy');}, 10);
+        }
+        window.private_built = true;
+    });
+
+    $('#tab-3-btn').click(function(){
+        if (!window.public_built) {
+            $("#dialog-modal").dialog({
+                height: 140,
+                modal: true,
+                autoOpen: true,
+                title: "Building Keylist"
+            }).children()[0].innerHTML = "Please wait while build the keylist.";
+            setTimeout( function(){ buildKeylist(keylist=null, 'public'); $("#dialog-modal").dialog('destroy');}, 10);
+        }
+        window.public_built = true;
+    });
 
     // Begin public keylist generation
     function buildKeylist(keyList, type, openKey, openUID){
@@ -59,6 +73,7 @@ $(function(){
             genkey_button.setAttribute('value', 'Generate New Key');
             genkey_button.setAttribute('type', 'button');
             $(genkey_button).button().click(function(e){
+                window.genkey_refresh = false;
                 $("#genkey-dialog").dialog({
                     "buttons": { 
                         "Create": function() {
@@ -86,6 +101,7 @@ $(function(){
                                 $("#genkey-status").html(error)[0].style.display="block";
                                 return false;
                             }
+                            window.genkey_waiting = true;
                             chrome.extension.onConnect.addListener(function(port) {
                                 port.onMessage.addListener(function(msg) {
                                     if (msg.type == "progress") {
@@ -93,7 +109,12 @@ $(function(){
                                         if (!isNaN(data))
                                             data = String.fromCharCode(data);
                                         data += " ";
-                                        $("#genkey_progress")[0].innerHTML += data;
+                                        if($("#genkey_progress"))
+                                            $("#genkey_progress")[0].innerHTML += data;
+                                        if(data == "complete") {
+                                            window.genkey_refresh = true;
+                                            window.genkey_waiting = false;
+                                        }
                                     }
                                 });
                             });
@@ -136,20 +157,24 @@ $(function(){
                         },
                         Cancel: function() {
                             $("#genkey-dialog").dialog("close");
+                            if (window.genkey_refresh)
+                                buildKeylist(null, 'private');
                         }
                     },
                     "beforeClose": function () {
-                        $(this).dialog("destroy");
-                        $("#genkey-status_detail").remove()
-                        $("#genkey-status").remove()
-                        $(this).find("#genkey-form")[0].style.display="block";
-                        $("#genkey-dialog").dialog({
-                            resizable: false,
-                            minHeight: 250,
-                            width: 630,
-                            modal: true,
-                            autoOpen: false
-                        });
+                        if(!window.genkey_waiting) {
+                            $(this).dialog("destroy");
+                            $("#genkey-status_detail").remove()
+                            $("#genkey-status").remove()
+                            $(this).find("#genkey-form")[0].style.display="block";
+                            $("#genkey-dialog").dialog({
+                                resizable: false,
+                                minHeight: 250,
+                                width: 630,
+                                modal: true,
+                                autoOpen: false
+                            });
+                        }
                     }
                 });
 
@@ -217,7 +242,7 @@ $(function(){
                 if (keylist[key].revoked)
                     $(keyobj).addClass('invalid-key');
                 keyobj.className += ' primary_key';
-                enabled = (window.ext.gpgauth_prefs.enabled_keys.has(key)) ? 'checked' : '';
+                enabled = (enabled_keys.indexOf(key) != -1) ? 'checked' : '';
                 status_text = (enabled) ? "Enabled" : "Disabled";
                 default_key = (key == window.ext.gpgauth_prefs.default_key.get()) ? 'checked' : '';
             }
@@ -294,6 +319,8 @@ $(function(){
                 uidobjbody.innerHTML = "<div class='uid-options'><input class='uid-option-button' id='sign-" + type + "-" + key + "-" + uid + "' type='button' value='Sign this UID'/\></div><br/\>";
                 if (keylist[key].uids[uid].revoked)
                     $(uidobjbody).find('.uid-option-button').addClass('uid-revoked');
+                if (keylist[key].expired)
+                    $(uidobjbody).find('.uid-option-button').addClass('key-expired');
                 for (sig in keylist[key].uids[uid].signatures) {
                     sig_keyid = keylist[key].uids[uid].signatures[sig]
                     if (sig_keyid in keylist || nd_trust) {
@@ -372,11 +399,11 @@ $(function(){
                 cursig.push(current_signatures[sig]);
             }
             if (!window.ext.gpgauth_prefs.enabled_keys.length()) {
-                $('#createsig-form')[0].innerHTML += "You have no enabled any keys for use with gpgAuth; <a href='" + chrome.extension.getURL('options.html') + "?tab=1&helper=enable'>please click here</a> and select 1 or more keys for use with gpgAuth.";
+                $('#createsig-form')[0].innerHTML += "You have not enabled any keys for use with gpgAuth; <a href='" + chrome.extension.getURL('options.html') + "?tab=1&helper=enable'>please click here</a> and select 1 or more keys for use with gpgAuth.";
             }
             for (idx in enabled_keys) {
                 key = enabled_keys[idx];
-                signed = cursig.has(key);
+                signed = (cursig.indexOf(key) != -1);
                 status = signed? "<div style='width: 28px; display: inline;text-align:right;'><img style='height: 14px; padding: 2px 2px 0 4px;' id='img_" + key + "' " +
                     "src='/images/badges/stock_signature.png' alt='Already signed with this key'/\></div>" :
                     "<div style='width: 28px; display: inline;text-align:right;'><img style='display:none; height: 14px; padding: 2px 2px 0 4px;' id='img_" + key + "' " +
@@ -427,7 +454,7 @@ $(function(){
                     }
                 }
             })
-            if (window.ext.gpgauth_prefs.enabled_keys.length() == 1 && cursig.has(enabled_keys[0])) {
+            if (window.ext.gpgauth_prefs.enabled_keys.length() == 1 && cursig.indexOf(enabled_keys[0]) != -1) {
                 $($("button", $("#createsig-dialog").parent()).children()[1]).hide();
             }
             $("#createsig-dialog").dialog('open');
@@ -435,7 +462,8 @@ $(function(){
         if (!window.ext.plugin.gpg_status.gpgconf_detected) {
             $('.uid-option-button').button({disabled: true, label: "Cannot create signatures without gpgconf utility installed"});
         }
-        $('.uid-revoked').button({disabled: true, label: "Cannot sign revoked UID"})
+        $('.uid-revoked').button({disabled: true, label: "Cannot sign a revoked UID"});
+        $('.key-expired').button({disabled: true, label: "Cannot sign an expired key"});
         $('.delsig-button').button().click(function(e){
             params = this.id.split('-');
             calling_button = this;
@@ -498,7 +526,8 @@ $(function(){
                 keyid = this.id.substr(-16);
                 window.ext.gpgauth_prefs.default_key.set(keyid);
                 enable_element = $('#check-' + this.id.substr(-16))[0];
-                if (window.ext.gpgauth_prefs.enabled_keys.has(keyid) == false) {
+                enabled_keys = window.ext.gpgauth_prefs.enabled_keys.get();
+                if (enabled_keys.indexOf(keyid) == -1) {
                     window.ext.gpgauth_prefs.enabled_keys.add(keyid);
                     $(enable_element).trigger('click');
                     $(enable_element).next()[0].innerHTML = $(enable_element).next()[0].innerHTML.replace('Disabled', 'Enabled');
@@ -507,8 +536,8 @@ $(function(){
     }
     /* end publickeylist */
 
-    buildKeylist(keylist=null, 'public');
-    buildKeylist(keylist=null, 'private');
+    //buildKeylist(keylist=null, 'public');
+    //buildKeylist(keylist=null, 'private');
 
     $('#trust-level-sel').ready(function(e){
         trust_level = window.ext.gpgauth_prefs.trust_level.get();
@@ -582,6 +611,7 @@ $(function(){
         });
         $("#dialog-modal:ui-dialog").dialog( "destroy" );
     }
+
     if (window.location.search.substring) {
         var query_string = {};
         window.location.search.replace(
@@ -589,8 +619,13 @@ $(function(){
             function($0, $1, $2, $3) { query_string[$1] = $3; }
         );
     }
+
     selected_tab = query_string.tab ? query_string.tab : 0;
     $('#tabs').tabs({ selected: selected_tab });
+    if (selected_tab == 1)
+        buildKeylist(null, 'private');
+    if (selected_tab == 2)
+        buildKeylist(null, 'public');
     $('.trust').click(function(e){
         e.stopPropagation();
     });

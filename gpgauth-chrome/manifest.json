@@ -24,12 +24,12 @@
   "page_action": {
     "default_icon": "images/badges/default.png", // required
     "default_title": "gpgAuth Enabled website",    // optional; shown in tooltip
-    "default_popup": "dialogs/popup.html"    // optional
+    "default_popup": "dialogs/enabled.html"
   },
   "plugins": [
-    { "path": "plugins/Darwin_x86-gcc3/npgpgAuth-v1.0.3b.plugin", "public": false },
-    { "path": "plugins/Linux_x86-gcc3/npgpgAuth-v1.0.3b.so", "public": false },
-    { "path": "plugins/Linux_x86_64-gcc3/npgpgAuth-v1.0.3b.so", "public": false },
-    { "path": "plugins/WINNT_x86-msvc/npgpgAuth-v1.0.3b.dll", "public": false }
+    { "path": "plugins/Darwin_x86-gcc3/npgpgAuth-v1.0.3b.plugin", "public": false },    // Mac OS X x86 NPAPI Binary
+    { "path": "plugins/Linux_x86-gcc3/npgpgAuth-v1.0.3b.so", "public": false },         // Linux x86 NPAPI Binary
+    { "path": "plugins/Linux_x86_64-gcc3/npgpgAuth-v1.0.3b.so", "public": false },      // Linux x64 NPAPI Binary
+    { "path": "plugins/WINNT_x86-msvc/npgpgAuth-v1.0.3b.dll", "public": false }         // Windows x86 NPAPI Binary
   ]
 }

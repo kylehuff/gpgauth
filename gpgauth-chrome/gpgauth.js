@@ -32,7 +32,7 @@ var gpgAuth = {
     onLoad: function() {
         this._version = CLIENT_VERSION;
         if (!this.gpg_elements) {
-            this.gpg_elements = new Array();
+            this.gpg_elements = {};
         }
         chrome.extension.sendRequest({msg: 'enabled'}, function(response) { gpgAuth.init(response); });
     },
@@ -47,25 +47,29 @@ var gpgAuth = {
             //TODO: Replace this with logic to detect if gpgauth is not enabled, 
             //    and the druid has not yet run - if so, prompt the user to run the druid.
         }
+
         if (!this.gpg_elements[document.domain]) {
             this.gpg_elements[document.domain] = new Array();
         }
-        /* Extension has been loaded, make a 'HEAD' request to server for the
-           current page to discover if gpgAuth enabled and any related gpgAuth
-           requirements */
-        var request = new XMLHttpRequest();
-        var response_headers = null;
 
-        request.open("HEAD", document.URL, false);
-        request.setRequestHeader('X-User-Agent', 'gpgauth-discovery-chrome/1.0.3');
-//        request.setRequestHeader("Connection", "close")
-        request.send(null);
-        /* Make the request */
-        response_headers = request.getAllResponseHeaders()
-        /* Create an object to store any gpgAuth specific headers returned from the server. */
-        this.gpgauth_headers = gpgAuth.getHeaders(response_headers)
+        if(!this.gpg_elements[document.domain]['headers_checked']){
+            /* Extension has been loaded, make a 'HEAD' request to server for the
+               current page to discover if gpgAuth enabled and any related gpgAuth
+               requirements */
+            var request = new XMLHttpRequest();
+            var response_headers = null;
 
-        this.plugin_loaded = false;
+            request.open("HEAD", document.URL, false);
+            request.setRequestHeader('X-User-Agent', 'gpgauth-discovery-chrome/1.0.3');
+            request.send(null);
+            /* Make the request */
+            response_headers = request.getAllResponseHeaders();
+            /* Create an object to store any gpgAuth specific headers returned from the server. */
+            this.gpgauth_headers = gpgAuth.getHeaders(response_headers);
+            this.gpg_elements[document.domain]['headers'] = this.gpgauth_headers;
+            this.gpg_elements[document.domain]['headers_checked'] = true;
+        }
+
         /* if gpgAuth headers were found, send a message to background.html
             to have it init the plugin */
         if (this.gpgauth_headers.length) {

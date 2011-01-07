@@ -52,7 +52,7 @@ body{
 .bound-box {
     text-align: center;
     margin-left: auto; margin-right: auto;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .trust-level-sel {
@@ -141,8 +141,8 @@ body{
     height: 32px;
     width: 32px;
     position:relative;
-    background: #aaa  url('images/menumask.png') repeat-x;
-    border: 2px solid #333;
+    background: #333  url('images/menumask.png') repeat-x;
+<!--    border: 2px solid #0f0;-->
     -moz-border-radius: 8px;
     -webkit-border-radius: 8px;
     top: 0px;
@@ -210,7 +210,7 @@ body{
                         }
                         console.log(errors['gpg_agent']['detail']);
 
-                        if (!gpg_status.gpgconf_detected) {
+                        if (gpg_status.gpgconf_detected) {
                             errors['gpgconf'] = {
                                 'error': true,
                                 'detail': "gpgconf does not appear to be installed; You will not be able to create signatures",
@@ -249,6 +249,7 @@ body{
             });
             </script>
             <div class="bound-box">
+                <p>Welcome to the gpgAuth configuration helper - this will walk you through the items that need configuration before you can begin using gpgAuth.</p>
                 <p>Please review the list of requirements below and ensure your system is setup/configured to use gpgAuth authentication.</p>
                 <div style="width:100%; float:left;text-align: center;">
                     <div id="status_result" class="trust-level-sel" style="min-width: 600px; text-align:left;">
@@ -272,7 +273,6 @@ body{
         <div id="step-2" style="text-align: center;">
             <div class="ui-accordion-left"></div>
             <div class="bound-box">
-                <p>Welcome to the gpgAuth configuration helper - this will walk you through the items that need configuration before you can begin using gpgAuth.</p>
                 <p>Select a trust level:</p>
                 <div style="width:100%; float:left;text-align: center;">
                 <div class="trust-level-sel" id="trust-level-sel" style="min-width: 600px;">
@@ -333,7 +333,7 @@ body{
             <div class="ui-accordion-left"></div>
             <div class="bound-box">
                 <p id="personal-key-desc">In order to use gpgAuth you must have a set of Personal Keys</p>
-                <iframe id="options_frame" style="width: 100%; min-height: 500px; height:80%; border: none;">Loading...</iframe>
+                <iframe id="options_frame" style="width: 100%; min-height: 500px; height:80%; border: none;"></iframe>
                 <script>
                     $(function(){
                         $('#tab-3-btn').click(function(){
@@ -343,7 +343,6 @@ body{
                             options_frame = this.contentWindow.document.body;
                             $(options_frame).css("width", "90%")
                             $(options_frame).css("margin", "auto")
-                            //console.log(this.contentWindow.document.body.clientWidth);
                             options_frame.removeChild($(options_frame).find("#header")[0]);
                             ul = $(options_frame).find("ul");
                             ul.parent()[0].removeChild(ul[0]);

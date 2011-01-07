@@ -857,6 +857,8 @@ FB::variant gpgAuthPluginAPI::gpgSignUID(const std::string& keyid, long sign_uid
     if (err != GPG_ERR_NO_ERROR) {
         if (err == GPGME_STATUS_ALREADY_SIGNED) {
             result = get_error_map(__func__, err, "The selected UID has already been signed with this key.", __LINE__, __FILE__);
+        } else if (err == GPGME_STATUS_SIGEXPIRED) {
+            result =  get_error_map(__func__, err, "This key is expired; You cannot sign an expired key.", __LINE__, __FILE__);
         } else {
             result = get_error_map(__func__, gpgme_err_code (err), gpgme_strerror (err), __LINE__, __FILE__);
         }

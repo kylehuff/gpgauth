@@ -61,7 +61,7 @@ body {
             {'code': code}
         );
     }
-    
+
     chrome.tabs.getSelected(null, function(_tab) {
         chrome.extension.sendRequest({msg: 'getPopupData', tab: _tab},
             function(response) {

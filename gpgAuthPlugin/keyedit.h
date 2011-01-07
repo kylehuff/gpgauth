@@ -28,6 +28,10 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
     char *response = NULL;
     int error = GPG_ERR_NO_ERROR;
     static std::string prior_response = "";
+    static gpgme_status_code_t status_result;
+
+    if (status != 49 && status != 51)
+        status_result = status;
 
     if (fd >= 0) {
         if (!strcmp (args, "keyedit.prompt")) {
@@ -46,8 +50,8 @@ edit_fnc_sign (void *opaque, gpgme_status_code_t status, const char *args, int f
                     break;
 
                 default:
-                    if (step == 3 && prior_response == "tlsign")
-                        error = GPGME_STATUS_ALREADY_SIGNED; // Already signed with this key..
+                    if (status_result && prior_response == "tlsign")
+                        error = status_result; // there is a problem...
                     prior_response = "";
                     step = 0;
                     response = (char *) "quit";

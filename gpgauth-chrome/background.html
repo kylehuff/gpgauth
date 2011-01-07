@@ -63,7 +63,6 @@ var gpgauth_prefs = {
             window.localStorage.setItem('enabled_keys', keys_arr);
         },
         remove: function(keyid) {
-            console.log("remove request..");
             keys_tmp = this.get();
             keys_arr = [];
             for (key in keys_tmp) {
@@ -416,7 +415,7 @@ var gpgauthBackground = {
             return {'valid': true, 'plaintext': plaintext, 'keyid': keyid};
         } else {
             error_re = new RegExp("bad passphrase", "i");
-            if (plaintext['error'] && error_re.test(plaintext['error'])){
+            if (plaintext['error'] && plaintext['gpg_error_code'] == 11){
                 console.log("the passphrase was incorrect or cancelled");
                 errorno = 5;
             } else {
@@ -465,7 +464,7 @@ var gpgauthBackground = {
             }
             for (privateKeyId in private_keylist) {
                 if (!private_keylist[privateKeyId].keystatus){
-                    GAUTrust = plugin.verifyDomainKey(keylist[domain_key].uids[uid].uid, domain_key, uid, privateKeyId);
+                    GAUTrust = plugin.verifyDomainKey(keylist[domain_key].uids[uid].uid, domain_key, uid, private_keylist[privateKeyId]);
                     usable_domain_keyid = domain_key;
                     usable_private_keyid = privateKeyId;
                     usable_domain_key_trust = GAUTrust;
@@ -490,7 +489,6 @@ var gpgauthBackground = {
         }
         key_results = key_results_length > 0 ? gpgauthBackground.verifyDomainKey(domain, domain_keylist) : {};
         //verify the result here, consult preferences for minimum trust level
-        console.log(key_results);
         this.gpg_elements[domain]['domain_key'] = key_results['domain_key'];
         this.gpg_elements[domain]['domain_key_trust'] = key_results['domain_key_trust'];
         this.gpg_elements[domain]['user_key'] = key_results['user_key'];
@@ -580,7 +578,7 @@ var gpgauthBackground = {
         }
     },
 
-    generate_random_token: function( e ) {
+    generate_random_token: function() {
         var minsize, maxsize, count, actualsize, random_value;
         minsize = parseInt(60);
         maxsize = parseInt(100);
