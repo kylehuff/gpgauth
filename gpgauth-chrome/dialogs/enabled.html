@@ -93,6 +93,12 @@ body {
                             response.result.validation['domain_key_trust'] + ", which does not meet the minimum value in " +
                             "your prefrences.<br/\><br/\>Your configured value is " + 
                             response.result.validation['configured_trust'] + ".<br/\><br/\>";
+                        if (response.result.validation['domain_key_trust'] > -1) {
+                            options_element.innerHTML += "You have several options to proceed:<br/\>" +
+                            "&nbsp;&nbsp;&nbsp;&nbsp;Log in anyway (not recommended)<br/\>" +
+                            "&nbsp;&nbsp;&nbsp;&nbsp;Modify your configured trust level (not recommended)<br/\>" +
+                            "&nbsp;&nbsp;&nbsp;&nbsp;Sign the key and specify a level of trust (best option)<br/\><br/\>";
+                        }
                         options_element.innerHTML += "<div id='options'><input type='button' value='Log in anyway' onclick='callDoUserLogin(window.response);window.close();'/\>" +
                             "<input type='button' value='cancel' onclick='window.close();'/\></div>";
                     }

@@ -39,22 +39,38 @@ body {
     top: -15px;
 }
 
-.button {
-    font: bold 12px Arial;
-    text-decoration: none;
-    background-color: #DDD;
-    color: #000;
-    padding: 2px 6px 2px 6px;
-    border-top: 1px solid #CCC;
-    border-right: 1px solid #333;
-    border-bottom: 1px solid #333;
-    border-left: 1px solid #CCC;
-    float: right;
-}
+<!--.button {-->
+<!--    font: bold 12px Arial;-->
+<!--    text-decoration: none;-->
+<!--    background-color: #DDD;-->
+<!--    color: #000;-->
+<!--    padding: 2px 6px 2px 6px;-->
+<!--    border-top: 1px solid #CCC;-->
+<!--    border-right: 1px solid #333;-->
+<!--    border-bottom: 1px solid #333;-->
+<!--    border-left: 1px solid #CCC;-->
+<!--    float: right;-->
+<!--}-->
 
-.button:hover {
-    color: #333;
-    border: 2px solid #666;
+<!--.button:hover {-->
+<!--    color: #333;-->
+<!--    border: 2px solid #666;-->
+<!--}-->
+
+.imported_key {
+    color: #000;
+    width: 96%;
+    text-shadow: none;
+    font-weight: normal;
+    margin-top:5px;
+    background:#fff;
+    display:inline-block;
+    padding:8px;
+    -moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+    -moz-box-shadow:#666 2px 2px 2px;
+    -webkit-box-shadow:#666 2px 2px 2px;
+    border: 1px solid #666;
 }
 
 
@@ -68,6 +84,13 @@ body {
     </div>
 </body>
 <script>
+
+<!--    addEventListener("unload", function (event) {-->
+<!--        // delete any unchecked imports-->
+<!--            -->
+<!--        },-->
+<!--        true-->
+<!--    );-->
 
     function parseUrl(url) {
         var re = /^((\w+):\/\/\/?)?((\w+):?(\w+)?@)?([^\/\?:]+):?(\d+)?(\/?[^\?#;\|]+)?([;\|])?([^\?#]+)?\??([^#]+)?#?(\w*)/gi
@@ -103,11 +126,31 @@ body {
             chrome.extension.sendRequest({msg: 'doKeyImport', 'tab': _tab, 'domain': domain},
                 function(response) {
                     if (response.result.valid) {
+                        document.getElementById("title").innerHTML = "Please review these " + response.result.msg['considered'] + " Keys -";
                         // display the imported key and ask for trust
-                        document.getElementById('description').innerHTML = "Here is a summary of the import operation - (lots of TODO's here...<br/\><br/\>" +
-                            response.result.msg;
+                        import_result = "";
+                        console.log(response.result.msg);
+                        if (!response.result.msg['error']) {
+                            bg = chrome.extension.getBackgroundPage();
+                            for (key_item in response.result.msg['imports']) {
+                                keylist = bg.plugin.getDomainKey(response.result.msg['imports'][key_item]['fingerprint']);
+                                for (key_obj in keylist) {
+                                    key = keylist[key_obj];
+                                    import_result += "<div class='imported_key'>Key 0x" +
+                                            key.fingerprint.substr(-8, 8) + "<br><br>Domains:<br>";
+                                    for (uid_item in key.uids) {
+                                        import_result += "&nbsp;&nbsp;" + key.uids[uid_item].uid + "<br>";
+                                    }
+                                    import_result += "<br><br><input type='button' value='Set Trust' onclick='window.location=\"" + chrome.extension.getURL('options.html') + "?tab=2&openkey=" + key.fingerprint.substr(-16, 16) + "&strip=true&helper=signuids\";'/\></div>";
+                                }
+                            }
+                        } else {
+                            import_result = "There was a problem performing the import.<br><br>";
+                            import_result += response.result.msg['error'];
+                        }
+                        document.getElementById('description').innerHTML = import_result;
                     } else {
-                        document.getElementById('description').innerHTML = "Unable to retrieve the or import the public key.<br/\><br/\>";
+                        document.getElementById('description').innerHTML = "Unable to retrieve the or import the public key.<br><br>";
                         document.getElementById('description').innerHTML += response.result.msg.error;
                     }
                 }
@@ -127,20 +170,20 @@ body {
                             title.innerHTML = error_response.result.error;
                             switch(error_response.result.errorno) {
                                 case 1:
-                                    import_msg = (error_response.result.headers['X-GPGAuth-Pubkey-URL']) ? "Click on the \"import\" button below if you would like to attempt to import it, or log in without verifying the server.<br/\><br/\><div id='options'><input type='button' value='Login without verifying' onclick='callDoUserLogin(window.response);window.close();'/\><input type='button' value='Import' onclick='initiateImport();'/\>" : "We were unable to locate this servers public key for import.";
-                                    desc.innerHTML = "You do not have the public key for this domain.<br/\><br/\>" + import_msg + "</div>";
+                                    import_msg = (error_response.result.headers['X-GPGAuth-Pubkey-URL']) ? "Click on the \"import\" button below if you would like to attempt to import it, or log in without verifying the server.<br><br><div id='options'><input type='button' value='Login without verifying' onclick='callDoUserLogin(window.response);window.close();'/\><input type='button' value='Import' onclick='initiateImport();'/\>" : "We were unable to locate this servers public key for import.";
+                                    desc.innerHTML = "You do not have the public key for this domain.<br><br>" + import_msg + "</div>";
                                     break;
                                 case 2:
-                                    desc.innerHTML = "In order for gpgAuth to determine the trust for this domain, you must enable at least 1 private key in the options window<br/\><br/\><div id='options'><input type='button' onclick='window.location = \"" + chrome.extension.getURL('options.html') + "?tab=1&helper=enable\";' value=\"Click here to go to the options page\"/\></div>";
+                                    desc.innerHTML = "In order for gpgAuth to determine the trust for this domain, you must enable at least 1 private key in the options window<br><br><div id='options'><input type='button' onclick='window.location = \"" + chrome.extension.getURL('options.html') + "?tab=1&helper=enable\";' value=\"Click here to go to the options page\"/\></div>";
                                     break;
                                 case 3:
-                                    desc.innerHTML = "In order to perform verification of a domain, gpgAuth must know your desired default key.<br/\><br/\><div id='options'><input type='button' onclick='window.location = \"" + chrome.extension.getURL('options.html') + "?tab=1&helper=default\"' value=\"Click here to go to the options page\"/\></div>";
+                                    desc.innerHTML = "In order to perform verification of a domain, gpgAuth must know your desired default key.<br><br><div id='options'><input type='button' onclick='window.location = \"" + chrome.extension.getURL('options.html') + "?tab=1&helper=default\"' value=\"Click here to go to the options page\"/\></div>";
                                     break;
                                 case 4: // The server does not have the users reported public key
-                                    desc.innerHTML = "The server was unable to find or otherwise access your PublicKey";
+                                    desc.innerHTML = "The server was unable to find or otherwise access your Public Key; It is possible your key is expired or perhaps the server does not have your Public Key on file.";
                                     break;
                                 case 5: // Unable to decrypt token (Bad or cancelled passphrase)
-                                    desc.innerHTML = "Unable to decrypt the token provided by the server;<br/\><br/\>The passphrase was incorrect or the passphrase dialog may have been cancelled.<br/\><br/\><div id='options'><input type='button' value='Retry Login' onclick='callDoUserLogin(window.response);window.close();'/\></div>";
+                                    desc.innerHTML = "Unable to decrypt the token provided by the server;<br><br>The passphrase was incorrect or the passphrase dialog may have been cancelled.<br><br><div id='options'><input type='button' value='Retry Login' onclick='callDoUserLogin(window.response);window.close();'/\></div>";
                                     break;
                                 case 6: // Token format does not match
                                     desc.innerHTML = "The token provided by the server is either empty, or it does not match the required format.";

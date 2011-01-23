@@ -159,7 +159,7 @@ var gpgauthBackground = {
                 });
             }
             chrome.pageAction.show(sender.tab.id);
-            chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup.html"});
+            //chrome.pageAction.setPopup({tabId: sender.tab.id, popup: "dialogs/popup.html"});
         }
         if (request.msg == 'doServerTests') {
             if (!gpgauthBackground.gpg_elements[request.params['domain']]) {
@@ -395,7 +395,13 @@ var gpgauthBackground = {
         // Here we check to see if the server has reported any issues with key
         if (server_response == "get_key failed") {
             return response = {'valid': false, 'errorno': 4, 'error': 
-                'The server was unable to find your PublicKey (' + keyid + ').'
+                'The server was unable to find your Public Key (' + keyid + ').'
+            };
+        }
+
+        if (server_response == "encrypt failed") {
+            return response = {'valid': false, 'errorno': 4, 'error': 
+                'The server was unable to encrypt to your Public Key (' + keyid + ').'
             };
         }
 

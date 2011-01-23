@@ -61,6 +61,7 @@ $(function(){
                 // if the parsing failed, create an empty keylist
                 pkeylist = {};
             }
+            window.pkeylist = pkeylist;
         }
 
         keylist_element.innerHTML = "<div class='ui-accordion-left'></div>";
@@ -111,9 +112,23 @@ $(function(){
                                         data += " ";
                                         if($("#genkey_progress"))
                                             $("#genkey_progress")[0].innerHTML += data;
-                                        if(data == "complete") {
+                                        if(data == "complete" || data == "complete ") {
                                             window.genkey_refresh = true;
                                             window.genkey_waiting = false;
+                                            new_pkeylist = window.ext.plugin.getPrivateKeyList();
+                                            generated_key = null;
+                                            for (key in new_pkeylist) {
+                                                if (key in window.pkeylist == false) {
+                                                    generated_key = key;
+                                                    break;
+                                                }
+                                            }
+                                            buildKeylist(null, "private", generated_key, null);
+                                            $("#genkey-status_detail").remove()
+                                            $("#genkey-status").remove();
+                                            $("#genkey-form")[0].reset();
+                                            $("#genkey-form")[0].style.display="inline-block";
+                                            $("#genkey-dialog").dialog("close");
                                         }
                                     }
                                 });
@@ -161,21 +176,6 @@ $(function(){
                                 buildKeylist(null, 'private');
                         }
                     },
-                    "beforeClose": function () {
-                        if(!window.genkey_waiting) {
-                            $(this).dialog("destroy");
-                            $("#genkey-status_detail").remove()
-                            $("#genkey-status").remove()
-                            $(this).find("#genkey-form")[0].style.display="block";
-                            $("#genkey-dialog").dialog({
-                                resizable: false,
-                                minHeight: 250,
-                                width: 630,
-                                modal: true,
-                                autoOpen: false
-                            });
-                        }
-                    }
                 });
 
                 $("#genkey-form").children('input').removeClass('input-error');
@@ -206,21 +206,6 @@ $(function(){
             $('.passphrase').passwordStrength("#pass_repeat");
             genkey_div.appendChild(genkey_button);
             document.getElementById('private_keylist').appendChild(genkey_div);
-
-            $('ul.expand').each(function(){
-                $('li.trigger', this).filter(':first').addClass('top').end().filter(':not(.open)').next().hide();
-                $('li.trigger', this).click(function(){
-                    height = ($("#genkey-status")) ? $("#genkey-status").height() : 0;
-                    if($(this).hasClass('open')) {
-                        $(this).removeClass('open').next().slideUp();
-                        $("#genkey-dialog").dialog("option", "minHeight", 250 + height);
-                    } else {
-                        $(this).parent().find('li.trigger').removeClass('open').next().filter(':visible').slideUp();
-                        $(this).addClass('open').next().slideDown();
-                        $("#genkey-dialog").dialog("option", "minHeight", 410 + height);
-                    }
-                });
-            });
             // End key generation dialog
         }
 
@@ -269,9 +254,9 @@ $(function(){
                 $(keyobj).addClass('open_key');
                 keyobj.setAttribute('id', 'open_key');
             }
-            if (type == "public")
+            if (type == "public") {
                 keyobj.innerHTML = "<h3 class='public_keylist'><a href='#'><span style='margin: 0;width: 50%'>" + keylist[key].name + "</span><span class='trust'></span></a></h3>";
-            else
+            } else {
                 keyobj.innerHTML = "<h3 class='private_keylist' style='height: 24px;'><a href='#'><span style='margin: 0;width: 50%;'>" + keylist[key].name + 
                     "&nbsp;&nbsp;-&nbsp;&nbsp;[0x" + key.substr(-8) + "]</span></a><span class='trust' style='z-index:1000; left: 12px; top:-25px;height:22px;'>" +
                     "<input class='enable-check' id='check-" + key +"' type='checkbox' " + enabled + " onclick=\"if ('" + key + "' == window.ext.gpgauth_prefs.default_key.get()){" +
@@ -279,6 +264,7 @@ $(function(){
                     "window.ext.gpgauth_prefs.enabled_keys.remove('" + key + "'); (this.checked) ? $(this).button('option', 'label', 'Enabled') : $(this).button('option', " +
                     "'label', 'Disabled');\"/\><label for='check-" + key + "' style='z-index:100;'>" + status_text + "</label><input class='default-check' type='radio' name='default_key' " +
                     " id='default-" + key + "' " + default_key + "/\><label class='default-check' style='z-index: 0; margin-left: 0px;' for='default-" + key + "'>Set as default</label></span></h3>";
+            }
             keylist_element.appendChild(keyobj);
             keylist[key].nuids = 0;
             for (uid in keylist[key].uids) {
@@ -339,6 +325,9 @@ $(function(){
             }
             keyobj.appendChild(uidlist);
         }
+        $('.trust').click(function(e){
+            e.stopPropagation();
+        });
         $('#' + type + '_keylist').children('.primary_key').accordion({ header: 'h3', alwaysOpen: false,
                     autoheight:false, clearStyle:true, active: '.ui-accordion-left',
                     collapsible: true }).children();
@@ -357,7 +346,6 @@ $(function(){
                     modal: true,
                     title: "Calculating Trust"
                 }).children()[0].innerHTML = "Please wait while recalculate the trust for this item.";
-                console.log("calling refresh_trust from ln 333");
                 setTimeout( function() { refresh_trust(uid_list, 'public') }, 300);
             }
         }
@@ -412,7 +400,7 @@ $(function(){
                     status += "<input style='display: none;' type='checkbox' id='sign_" + key + "' name='" + key + "' disabled/\>";
                 else
                     status += "<input type='checkbox' id='sign_" + key + "' name='" + key + "'/\>";
-                $('#createsig-form')[0].innerHTML += status + "<label for='sign_" + key + "' class='help-text'>" + pkeylist[key].name + " (" + key + ")</label><br/\>";
+                $('#createsig-form')[0].innerHTML += status + "<label for='sign_" + key + "' id='lbl-sign_" + key + "' class='help-text'>" + pkeylist[key].name + " (" + key + ")</label><div id='lbl-sign-err_" + key + "' style='display: none;'></div><br/\>";
                 if (window.ext.gpgauth_prefs.enabled_keys.length() == 1 && signed) {
                     $($("button", $("#createsig-dialog").parent()).children()[1]).hide();
                 }
@@ -437,6 +425,11 @@ $(function(){
                                 error = (error || (sign_result['error'] && sign_result['gpg_error_code'] != 65)); // if this is true, there were errors, leave the dialog open
                                 if (sign_result['error'] && sign_result['gpg_error_code'] != 65) {
                                     $('#img_' + checked[item].name)[0].src = "/images/cancel.png"
+                                    lbl_sign_error = $('#lbl-sign-err_' + checked[item].name)[0];
+                                    lbl_sign_error.style.display = "inline";
+                                    lbl_sign_error.style.color = "#f40";
+                                    lbl_sign_error.style.margin = "0 0 0 20px";
+                                    lbl_sign_error.innerHTML = sign_result['error_string'];
                                     $($("button", $("#createsig-dialog").parent()).children()[0]).text("Close")
                                     $($("button", $("#createsig-dialog").parent()).children()[1]).text("Try again")
                                 } else {
@@ -583,7 +576,7 @@ $(function(){
             $("#dialog-modal:ui-dialog").dialog( "destroy" );
             return false;
         }
-        if (item.parentNode.parentNode.nodeName == "H3") {
+        if (item.parentNode.parentNode && item.parentNode.parentNode.nodeName == "H3") {
             uidcontainer = item.parentNode.parentNode.parentNode.children[1];
         } else {
             uidcontainer = item.parentNode.parentNode.children[1];
@@ -622,13 +615,15 @@ $(function(){
 
     selected_tab = query_string.tab ? query_string.tab : 0;
     $('#tabs').tabs({ selected: selected_tab });
+    openKey = (query_string.openkey)? query_string.openkey : null;
     if (selected_tab == 1)
-        buildKeylist(null, 'private');
+        buildKeylist(null, 'private', openKey);
     if (selected_tab == 2)
-        buildKeylist(null, 'public');
-    $('.trust').click(function(e){
-        e.stopPropagation();
-    });
+        buildKeylist(null, 'public', openKey);
+    if (query_string.strip) {
+        $("#header").remove();
+        $(document.getElementsByTagName("ul")[0]).remove();
+    }
     $('#window_functions')[0].innerHTML += "<input type='button' id='close' value='Finished'>";
     $('#close').button().click(function(e) { window.close(); });
     if (query_string.helper) {
@@ -640,12 +635,13 @@ $(function(){
         }
         helper_arrow = document.createElement('div');
         helper_arrow.innerHTML = '' +
-            '<div id="error_help" style="text-align: center; display: inline; width: 100%; text-shadow: #000 1px 1px 1px; color: #fff; font-size: 12px;">' +
-            '<div id="help_text" style="display: block; -moz-border-radius: 4px; -webkit-border-radius: 4px; z-index: 10; padding: 2px 5px 2px 5px; height: 20px; margin-right: -5px; background-color: #ff6600; min-width: 130px;"></div>' +
+            '<div id="error_help" style="text-align: center; display: inline; text-shadow: #000 1px 1px 1px; color: #fff; font-size: 12px;">' +
+            '<div id="help_text" style="display: block; -moz-border-radius: 4px; -webkit-border-radius: 4px; z-index: 10; padding: 8px 5px 8px 5px; margin-right: -5px; background-color: #ff6600; min-width: 130px;"></div>' +
             '<span style="margin-left: 94px;"><img width="30px" src="/images/help_arrow.png"></span>' +
             '</div>';
         helper_arrow.style.position = 'absolute';
         helper_arrow.style.zIndex = 1000;
+        $(helper_arrow).css("max-width", "75%");
         switch(query_string.helper){
             case 'enable':
                 $(helper_arrow).find('#help_text')[0].innerHTML = "Click to enable key";
@@ -659,8 +655,30 @@ $(function(){
                 document.body.appendChild(helper_arrow);
                 bounce('.default-check', 40, 45, true);
                 break;
+            case 'signuids':
+                $(helper_arrow).find('#help_text')[0].innerHTML = "Below is a list of key IDs that represent the domains that this server key is valid for; please sign the domain IDs that you want to use with gpgAuth.";
+                document.body.appendChild(helper_arrow);
+                height = 50 + ($(helper_arrow)[0].offsetHeight * -1) + 35;
+                bounce('#disable-public-' + openKey, 15, height, false);
+                break;
         }
     }
+
+    $('ul.expand').each(function(){
+        $('li.trigger', this).filter(':first').addClass('top').end().filter(':not(.open)').next().hide();
+        $('li.trigger', this).click(function(){
+            height = ($("#genkey-status")) ? $("#genkey-status").height() : 0;
+            if($(this).hasClass('open')) {
+                $(this).removeClass('open').next().slideUp();
+                $("#genkey-dialog").dialog("option", "minHeight", 250 + height);
+            } else {
+                $(this).parent().find('li.trigger').removeClass('open').next().filter(':visible').slideUp();
+                $(this).addClass('open').next().slideDown();
+                $("#genkey-dialog").dialog("option", "minHeight", 410 + height);
+            }
+        });
+    });
+
 });
 /* ]]> */
 </script>
