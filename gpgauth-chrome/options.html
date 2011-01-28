@@ -658,8 +658,7 @@ $(function(){
             case 'signuids':
                 $(helper_arrow).find('#help_text')[0].innerHTML = "Below is a list of key IDs that represent the domains that this server key is valid for; please sign the domain IDs that you want to use with gpgAuth.";
                 document.body.appendChild(helper_arrow);
-                height = 50 + ($(helper_arrow)[0].offsetHeight * -1) + 35;
-                bounce('#disable-public-' + openKey, 15, height, false);
+                bounce('#disable-public-' + openKey, 15, 15, false);
                 break;
         }
     }

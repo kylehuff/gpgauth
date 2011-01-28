@@ -38,11 +38,12 @@ public:
     FB::VariantMap getPublicKeyList();
     FB::VariantMap getPrivateKeyList();
     FB::VariantMap getDomainKey(const std::string& domain);
-    int verifyDomainKey(const std::string& domain, const std::string& domain_key_fpr, 
+    int verifyDomainKey(const std::string& domain, const std::string& domain_key_fpr,
         long uid_idx, const std::string& required_sig_keyid);
 
     std::string get_preference(const std::string& preference);
-    FB::variant set_preference(const std::string& preference, const std::string& pref_value);
+    FB::variant set_preference(const std::string& preference,
+        const std::string& pref_value);
 
     FB::variant gpgEncrypt(const std::string& data, const std::string& enc_to_keyid, 
         const std::string& enc_from_keyid=NULL, const std::string& sign=NULL);
@@ -70,15 +71,21 @@ public:
         int type, int current, int total
     );
 
-    std::string gpgGenKeyWorker(const std::string& key_type, const std::string& key_length, 
-        const std::string& subkey_type, const std::string& subkey_length, const std::string& name_real,
-        const std::string& name_comment, const std::string& name_email, const std::string& expire_date,
-        const std::string& passphrase, void* APIObj, void(*cb_status)(void *self,
-                                            const char *what,
-                                            int type,
-                                            int current,
-                                            int total
-                                        )
+    std::string gpgGenKeyWorker(const std::string& key_type, 
+        const std::string& key_length,
+        const std::string& subkey_type,
+        const std::string& subkey_length,
+        const std::string& name_real,
+        const std::string& name_comment,
+        const std::string& name_email,
+        const std::string& expire_date,
+        const std::string& passphrase,
+        void* APIObj, void(*cb_status)(void *self,
+            const char *what,
+            int type,
+            int current,
+            int total
+        )
     );
 
     /*

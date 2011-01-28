@@ -8,7 +8,7 @@
 // dllmain.cpp : Implementation of DllMain.
 
 
-#include "Win/win_common.h"
+#include "win_common.h"
 #include "global/resource.h"
 #include "axmain.h"
 #include "axutil.h"

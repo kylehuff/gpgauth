@@ -1179,5 +1179,5 @@ FB::variant gpgAuthPluginAPI::gpgImportKey(const std::string& ascii_key) {
 // Read-only property version
 std::string gpgAuthPluginAPI::get_version()
 {
-    return "CURRENT_VERSION";
+    return "1.0.3b";
 }
