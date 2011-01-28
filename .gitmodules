@@ -1,0 +1,6 @@
+[submodule "gpgauth-npapi"]
+	path = gpgauth-npapi
+	url = git://github.com/gpgauth/gpgauth-npapi.git
+[submodule "gpgauth-chrome"]
+	path = gpgauth-chrome
+	url = git://github.com/gpgauth/gpgauth-chrome.git
