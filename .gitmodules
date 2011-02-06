@@ -4,3 +4,6 @@
 [submodule "gpgauth-chrome"]
 	path = gpgauth-chrome
 	url = git://github.com/gpgauth/gpgauth-chrome.git
+[submodule "gpgauth-php"]
+	path = gpgauth-php
+	url = git://github.com/gpgauth/gpgauth-php.git
